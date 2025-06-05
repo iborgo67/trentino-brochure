@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import LiveTracking from "@/components/live-tracking"
 
 export default function TrentinoBrochure() {
   const days = [
@@ -193,6 +194,17 @@ export default function TrentinoBrochure() {
             </div>
           </div>
         </div>
+
+        {/* Live Tracking Section */}
+        <section className="py-16 px-4 no-print">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-8">
+              <h2 className="text-4xl font-bold text-gray-800 mb-4">📍 Tracking Live del Viaggio</h2>
+              <p className="text-xl text-gray-600">Segui la tua posizione in tempo reale durante il tour</p>
+            </div>
+            <LiveTracking />
+          </div>
+        </section>
 
         {/* Love Letter Section */}
         <section className="py-16 px-4 page-break">
@@ -939,152 +951,6 @@ export default function TrentinoBrochure() {
                 </div>
               </CardContent>
             </Card>
-
-            {/* Route Details */}
-            <div className="mt-12 grid md:grid-cols-2 gap-8">
-              <Card className="shadow-lg avoid-break">
-                <CardHeader>
-                  <CardTitle className="flex items-center text-gray-800">🚗 Distanze e Tempi di Percorrenza</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                      <span className="font-medium">Moena → Passo San Pellegrino</span>
-                      <div className="text-right">
-                        <div className="text-green-600 font-semibold">15 km</div>
-                        <div className="text-sm text-gray-600">25 min</div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                      <span className="font-medium">Moena → Val San Nicolò</span>
-                      <div className="text-right">
-                        <div className="text-blue-600 font-semibold">8 km</div>
-                        <div className="text-sm text-gray-600">15 min</div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
-                      <span className="font-medium">Moena → Canazei</span>
-                      <div className="text-right">
-                        <div className="text-purple-600 font-semibold">12 km</div>
-                        <div className="text-sm text-gray-600">20 min</div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center p-3 bg-teal-50 rounded-lg">
-                      <span className="font-medium">Moena → Lago di Carezza</span>
-                      <div className="text-right">
-                        <div className="text-teal-600 font-semibold">25 km</div>
-                        <div className="text-sm text-gray-600">35 min</div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
-                      <span className="font-medium">Moena → Cavalese</span>
-                      <div className="text-right">
-                        <div className="text-orange-600 font-semibold">18 km</div>
-                        <div className="text-sm text-gray-600">25 min</div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-lg avoid-break">
-                <CardHeader>
-                  <CardTitle className="flex items-center text-gray-800">🛣️ Consigli per la Guida</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-start">
-                      <div className="w-3 h-3 bg-yellow-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                      <div>
-                        <h4 className="font-semibold text-gray-800">Strade di Montagna</h4>
-                        <p className="text-sm text-gray-600">Curve e pendenze: guidate con prudenza</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start">
-                      <div className="w-3 h-3 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                      <div>
-                        <h4 className="font-semibold text-gray-800">Parcheggi</h4>
-                        <p className="text-sm text-gray-600">Molti sono a pagamento, portate monete</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start">
-                      <div className="w-3 h-3 bg-green-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                      <div>
-                        <h4 className="font-semibold text-gray-800">Carburante</h4>
-                        <p className="text-sm text-gray-600">Fate rifornimento nei paesi principali</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start">
-                      <div className="w-3 h-3 bg-red-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                      <div>
-                        <h4 className="font-semibold text-gray-800">Meteo</h4>
-                        <p className="text-sm text-gray-600">Controllate le condizioni dei passi</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start">
-                      <div className="w-3 h-3 bg-purple-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                      <div>
-                        <h4 className="font-semibold text-gray-800">Navigatore</h4>
-                        <p className="text-sm text-gray-600">Scaricate le mappe offline</p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Alternative Routes */}
-            <div className="mt-12">
-              <Card className="shadow-lg avoid-break">
-                <CardHeader>
-                  <CardTitle className="text-center text-gray-800">🗺️ Percorsi Panoramici Alternativi</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid md:grid-cols-3 gap-6">
-                    <div className="text-center p-4 bg-gradient-to-b from-green-50 to-green-100 rounded-lg">
-                      <h4 className="font-semibold text-green-800 mb-2">Strada delle Dolomiti</h4>
-                      <p className="text-sm text-gray-700">SS48 - Panorami mozzafiato</p>
-                      <p className="text-xs text-green-600 mt-2">+15 min, ma ne vale la pena!</p>
-                    </div>
-
-                    <div className="text-center p-4 bg-gradient-to-b from-blue-50 to-blue-100 rounded-lg">
-                      <h4 className="font-semibold text-blue-800 mb-2">Passo Pordoi</h4>
-                      <p className="text-sm text-gray-700">SS48 - Regina delle Dolomiti</p>
-                      <p className="text-xs text-blue-600 mt-2">Imperdibile per le foto!</p>
-                    </div>
-
-                    <div className="text-center p-4 bg-gradient-to-b from-purple-50 to-purple-100 rounded-lg">
-                      <h4 className="font-semibold text-purple-800 mb-2">Val di Fiemme</h4>
-                      <p className="text-sm text-gray-700">SS48 - Tra boschi e prati</p>
-                      <p className="text-xs text-purple-600 mt-2">Perfetto per il relax</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* QR Code for Mobile Maps */}
-            <div className="mt-12 text-center">
-              <Card className="inline-block p-8 shadow-lg avoid-break">
-                <div className="text-center">
-                  <h3 className="text-xl font-bold text-gray-800 mb-4">📱 Mappa Mobile</h3>
-                  <div className="w-32 h-32 bg-gray-200 mx-auto mb-4 flex items-center justify-center rounded-lg">
-                    <span className="text-4xl">📍</span>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-2">Scansiona per aprire</p>
-                  <p className="text-sm text-gray-600">Google Maps sul telefono</p>
-                  <p className="text-xs text-gray-500 mt-2">Oppure cerca: "Moena Trentino itinerario"</p>
-                </div>
-              </Card>
-            </div>
           </div>
         </section>
 
