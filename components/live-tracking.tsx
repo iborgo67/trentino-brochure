@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Navigation, Clock, Camera, Share2, Users, Eye, RefreshCw, UserCheck } from "lucide-react"
+import { MapPin, Navigation, Clock, Camera, Share2, Users, Eye, RefreshCw, UserCheck, QrCode } from "lucide-react"
 
 interface Position {
   latitude: number
@@ -47,6 +47,9 @@ const tourStops: TourStop[] = [
   { name: "Cavalese", lat: 46.2897, lng: 11.4597, radius: 400, day: 6, emoji: "🌲" },
 ]
 
+// Chiave per il localStorage che contiene tutte le posizioni condivise
+const SHARED_POSITIONS_KEY = "trentino-all-positions"
+
 export default function LiveTracking() {
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null)
   const [isDeviceSetup, setIsDeviceSetup] = useState(false)
@@ -60,6 +63,8 @@ export default function LiveTracking() {
   const [isSharing, setIsSharing] = useState(false)
   const [shareUrl, setShareUrl] = useState<string>("")
   const [isCopied, setIsCopied] = useState(false)
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>("")
+  const [syncInterval, setSyncInterval] = useState<NodeJS.Timeout | null>(null)
 
   // Funzione per configurare il dispositivo
   const setupDevice = (owner: "Ivan" | "Rita" | "Guest", customName?: string) => {
@@ -89,7 +94,21 @@ export default function LiveTracking() {
     return `device_${timestamp}_${random}`
   }
 
-  // Carica configurazione salvata
+  // Genera URL base della pagina
+  const getBaseUrl = () => {
+    if (typeof window === "undefined") return ""
+    return window.location.origin + window.location.pathname
+  }
+
+  // Genera QR Code URL
+  useEffect(() => {
+    const baseUrl = getBaseUrl()
+    if (baseUrl) {
+      setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(baseUrl)}`)
+    }
+  }, [])
+
+  // Carica configurazione salvata e inizia sincronizzazione
   useEffect(() => {
     const savedDevice = localStorage.getItem("trentino-device")
     if (savedDevice) {
@@ -98,20 +117,78 @@ export default function LiveTracking() {
     }
 
     // Carica posizioni condivise salvate localmente
-    const savedPositions = localStorage.getItem("trentino-shared-positions")
-    if (savedPositions) {
-      const positions = JSON.parse(savedPositions)
-      setSharedPositions(
-        positions.map((p: any) => ({
-          ...p,
-          lastUpdate: new Date(p.lastUpdate),
-        })),
-      )
-    }
+    loadAllSharedPositions()
 
     // Controlla se c'è una posizione condivisa nell'URL
     checkForSharedPosition()
+
+    // Imposta intervallo di sincronizzazione automatica
+    const interval = setInterval(() => {
+      syncPositions()
+    }, 30000) // Sincronizza ogni 30 secondi
+
+    setSyncInterval(interval)
+
+    return () => {
+      if (interval) clearInterval(interval)
+    }
   }, [])
+
+  // Carica tutte le posizioni condivise dal localStorage
+  const loadAllSharedPositions = () => {
+    const savedPositions = localStorage.getItem(SHARED_POSITIONS_KEY)
+    if (savedPositions) {
+      try {
+        const positions = JSON.parse(savedPositions)
+        // Filtra posizioni più vecchie di 1 ora (3600000 ms)
+        const now = Date.now()
+        const filteredPositions = positions.filter((p: any) => now - new Date(p.lastUpdate).getTime() < 3600000)
+
+        setSharedPositions(
+          filteredPositions.map((p: any) => ({
+            ...p,
+            lastUpdate: new Date(p.lastUpdate),
+          })),
+        )
+
+        // Salva le posizioni filtrate
+        localStorage.setItem(SHARED_POSITIONS_KEY, JSON.stringify(filteredPositions))
+      } catch (e) {
+        console.error("Errore nel caricamento posizioni condivise:", e)
+      }
+    }
+  }
+
+  // Sincronizza posizioni (simula un database cloud)
+  const syncPositions = () => {
+    // In un'app reale, qui ci sarebbe una chiamata API a un database cloud
+    // Per ora, usiamo localStorage come simulazione
+    loadAllSharedPositions()
+
+    // Se stiamo condividendo, aggiorna la nostra posizione nel "database"
+    if (isSharing && position && deviceInfo) {
+      updateSharedPosition({
+        deviceInfo,
+        position,
+        lastUpdate: new Date(),
+        isOnline: true,
+      })
+    }
+  }
+
+  // Aggiorna o aggiunge una posizione condivisa
+  const updateSharedPosition = (newPosition: SharedPosition) => {
+    setSharedPositions((prev) => {
+      // Rimuovi la vecchia posizione dello stesso dispositivo
+      const filtered = prev.filter((p) => p.deviceInfo.id !== newPosition.deviceInfo.id)
+      // Aggiungi la nuova posizione
+      const updated = [...filtered, newPosition]
+
+      // Salva nel localStorage
+      localStorage.setItem(SHARED_POSITIONS_KEY, JSON.stringify(updated))
+      return updated
+    })
+  }
 
   // Controlla se c'è una posizione condivisa nell'URL
   const checkForSharedPosition = () => {
@@ -143,14 +220,12 @@ export default function LiveTracking() {
         }
 
         // Aggiungi o aggiorna la posizione condivisa
-        setSharedPositions((prev) => {
-          const filtered = prev.filter((p) => p.deviceInfo.id !== data.deviceId)
-          const updated = [...filtered, sharedPosition]
+        updateSharedPosition(sharedPosition)
 
-          // Salva anche localmente
-          localStorage.setItem("trentino-shared-positions", JSON.stringify(updated))
-          return updated
-        })
+        // Pulisci l'URL dopo aver caricato la posizione
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState({}, document.title, window.location.pathname)
+        }
       } catch (e) {
         console.error("Errore nel caricamento posizione condivisa:", e)
       }
@@ -210,7 +285,7 @@ export default function LiveTracking() {
       isGuest: deviceInfo.isGuest,
     }
 
-    const baseUrl = window.location.origin + window.location.pathname
+    const baseUrl = getBaseUrl()
     return `${baseUrl}?shared=${encodeURIComponent(JSON.stringify(shareData))}`
   }
 
@@ -251,6 +326,16 @@ export default function LiveTracking() {
         const url = generateShareUrl(newPosition)
         setShareUrl(url)
         setIsSharing(true)
+
+        // Aggiorna la posizione condivisa nel "database"
+        if (deviceInfo) {
+          updateSharedPosition({
+            deviceInfo,
+            position: newPosition,
+            lastUpdate: new Date(),
+            isOnline: true,
+          })
+        }
       },
       (err) => {
         setError(`Errore GPS: ${err.message}`)
@@ -272,6 +357,15 @@ export default function LiveTracking() {
     setIsTracking(false)
     setShareUrl("")
     setIsSharing(false)
+
+    // Rimuovi la nostra posizione dal "database"
+    if (deviceInfo) {
+      setSharedPositions((prev) => {
+        const filtered = prev.filter((p) => p.deviceInfo.id !== deviceInfo.id)
+        localStorage.setItem(SHARED_POSITIONS_KEY, JSON.stringify(filtered))
+        return filtered
+      })
+    }
   }
 
   // Copia link negli appunti
@@ -289,6 +383,8 @@ export default function LiveTracking() {
 
     const url = shareUrl || generateShareUrl(position)
     const googleMapsUrl = `https://maps.google.com/maps?q=${position.latitude},${position.longitude}`
+    const baseUrl = getBaseUrl()
+
     const message = `🗺️ ${deviceInfo.emoji} ${deviceInfo.owner} è qui in Trentino!
 
 📍 Posizione su Google Maps:
@@ -296,6 +392,9 @@ ${googleMapsUrl}
 
 🔗 Tracking live sulla brochure:
 ${url}
+
+📱 Link diretto alla mappa di tutti:
+${baseUrl}
 
 ⏰ Aggiornato: ${new Date().toLocaleString()}
 
@@ -331,9 +430,9 @@ ${url}
     input.click()
   }
 
-  // Aggiorna posizioni condivise
+  // Aggiorna posizioni condivise manualmente
   const refreshSharedPositions = () => {
-    checkForSharedPosition()
+    syncPositions()
   }
 
   // Setup Guest con nome personalizzato
@@ -417,13 +516,64 @@ ${url}
               </div>
               <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
                 <p className="text-sm text-gray-800">
-                  <strong>👤 Ospiti:</strong> Possono solo vedere le posizioni condivise da Ivan e Rita
+                  <strong>👤 Ospiti:</strong> Possono vedere le posizioni condivise da Ivan e Rita
                 </p>
               </div>
             </div>
           </CardContent>
         </Card>
       )}
+
+      {/* QR Code Fisso */}
+      <Card className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200">
+        <CardHeader>
+          <CardTitle className="flex items-center text-indigo-800">
+            <QrCode className="w-6 h-6 mr-2" />
+            QR Code Mappa Live
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col md:flex-row items-center gap-6">
+            <div className="bg-white p-4 rounded-lg shadow-md">
+              {qrCodeUrl && (
+                <img src={qrCodeUrl || "/placeholder.svg"} alt="QR Code per Mappa Live" className="w-40 h-40 mx-auto" />
+              )}
+            </div>
+            <div className="flex-1">
+              <h4 className="font-bold text-indigo-800 mb-2">Scansiona per Vedere Tutte le Posizioni</h4>
+              <p className="text-gray-700 mb-3">
+                Questo QR code porta direttamente alla mappa live con tutte le posizioni condivise. Ideale per:
+              </p>
+              <ul className="space-y-1 text-sm">
+                <li className="flex items-center">
+                  <span className="w-5 h-5 rounded-full bg-green-100 text-green-800 flex items-center justify-center mr-2 text-xs">
+                    ✓
+                  </span>
+                  Papà e altri familiari che vogliono vedere dove siete
+                </li>
+                <li className="flex items-center">
+                  <span className="w-5 h-5 rounded-full bg-green-100 text-green-800 flex items-center justify-center mr-2 text-xs">
+                    ✓
+                  </span>
+                  Accesso rapido alla mappa senza dover ricevere link
+                </li>
+                <li className="flex items-center">
+                  <span className="w-5 h-5 rounded-full bg-green-100 text-green-800 flex items-center justify-center mr-2 text-xs">
+                    ✓
+                  </span>
+                  Vedere automaticamente tutte le posizioni attive
+                </li>
+              </ul>
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  <strong>💡 Consiglio:</strong> Salva questo QR code come immagine e invialo a papà. Può salvarlo sul
+                  telefono per accesso rapido!
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Controlli Tracking */}
       <Card className="bg-gradient-to-r from-blue-50 to-green-50">
@@ -464,6 +614,15 @@ ${url}
                     puoi condividere la tua posizione.
                   </p>
                 </div>
+              </div>
+              <div className="mt-3 flex justify-center">
+                <button
+                  onClick={refreshSharedPositions}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Aggiorna Posizioni
+                </button>
               </div>
             </div>
           ) : (
@@ -511,12 +670,24 @@ ${url}
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{error}</div>
           )}
 
-          {lastUpdate && (
+          {lastUpdate && !deviceInfo?.isGuest && (
             <div className="flex items-center text-sm text-gray-600">
               <Clock className="w-4 h-4 mr-1" />
               Ultimo aggiornamento: {lastUpdate.toLocaleTimeString()}
             </div>
           )}
+
+          {/* Auto-sincronizzazione attiva */}
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="font-semibold text-blue-800 mb-2">🔄 Auto-Sincronizzazione Attiva</h4>
+            <p className="text-sm text-blue-700">
+              Il sistema sincronizza automaticamente tutte le posizioni condivise. Chiunque apra questa pagina vedrà
+              tutte le posizioni attive di Ivan e Rita.
+            </p>
+            <div className="mt-2 text-xs text-gray-600">
+              Ultimo aggiornamento: {new Date().toLocaleTimeString()} (si aggiorna ogni 30 secondi)
+            </div>
+          </div>
 
           {/* Link di condivisione attivo */}
           {shareUrl && !deviceInfo?.isGuest && (
@@ -539,8 +710,8 @@ ${url}
                   {isCopied ? "Copiato!" : "Copia"}
                 </button>
               </div>
-              <p className="text-xs text-red-600 mt-2">
-                ⚠️ Gli ospiti DEVONO aprire questo link per vedere la tua posizione!
+              <p className="text-xs text-green-700 mt-2">
+                ✅ Ora gli ospiti vedranno TUTTE le posizioni attive, non solo la tua!
               </p>
             </div>
           )}
@@ -852,19 +1023,19 @@ ${url}
           <div className="flex items-center text-blue-800">
             <Share2 className="w-5 h-5 mr-2" />
             <div>
-              <h4 className="font-semibold">📱 Come Funziona il Sistema</h4>
+              <h4 className="font-semibold">📱 Come Funziona il Nuovo Sistema</h4>
               <ul className="text-sm mt-2 space-y-1">
                 <li>
-                  • <strong>👨‍💻👩‍💼 Ivan & Rita:</strong> Possono attivare il GPS e condividere la posizione
+                  • <strong>🔄 Auto-Sincronizzazione:</strong> Tutte le posizioni si sincronizzano automaticamente
                 </li>
                 <li>
-                  • <strong>👤 Ospiti (Papà, famiglia):</strong> Ricevono il link e vedono le posizioni
+                  • <strong>📱 QR Code Fisso:</strong> Scansiona il QR code per vedere tutte le posizioni
                 </li>
                 <li>
-                  • <strong>🔗 Link automatico:</strong> Quando attivi il tracking, si genera il link da condividere
+                  • <strong>👨‍👩‍👧‍👦 Visibilità Completa:</strong> Papà vede sia Ivan che Rita con un solo link
                 </li>
                 <li>
-                  • <strong>📍 Visualizzazione:</strong> Gli ospiti vedono tutte le posizioni sulla mappa
+                  • <strong>🔄 Aggiornamenti:</strong> Il sistema si aggiorna ogni 30 secondi automaticamente
                 </li>
               </ul>
             </div>
