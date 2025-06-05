@@ -181,7 +181,7 @@ export default function LiveTracking() {
     setSharedPositions((prev) => {
       // Rimuovi la vecchia posizione dello stesso dispositivo
       const filtered = prev.filter((p) => p.deviceInfo.id !== newPosition.deviceInfo.id)
-      // Aggiungi la nuova posizione
+      // Aggiungi la nuova posizione solo se il tracking è attivo
       const updated = [...filtered, newPosition]
 
       // Salva nel localStorage
@@ -358,7 +358,7 @@ export default function LiveTracking() {
     setShareUrl("")
     setIsSharing(false)
 
-    // Rimuovi la nostra posizione dal "database"
+    // Rimuovi la nostra posizione dal "database" condiviso
     if (deviceInfo) {
       setSharedPositions((prev) => {
         const filtered = prev.filter((p) => p.deviceInfo.id !== deviceInfo.id)
@@ -448,9 +448,9 @@ ${baseUrl}
   // Filtra le posizioni per escludere il dispositivo corrente
   const otherPositions = sharedPositions.filter((p) => p.deviceInfo.id !== deviceInfo?.id)
 
-  // Tutte le posizioni inclusa quella corrente (solo se non è guest)
+  // Tutte le posizioni inclusa quella corrente (solo se non è guest E il tracking è attivo)
   const allPositions = [...otherPositions]
-  if (position && deviceInfo && isSharing && !deviceInfo.isGuest) {
+  if (position && deviceInfo && isSharing && !deviceInfo.isGuest && isTracking) {
     allPositions.push({
       deviceInfo,
       position,
@@ -458,6 +458,25 @@ ${baseUrl}
       isOnline: true,
     })
   }
+
+  // Cleanup quando il componente viene smontato
+  useEffect(() => {
+    return () => {
+      // Se il componente viene smontato e stavamo condividendo, rimuovi la posizione
+      if (isSharing && deviceInfo) {
+        const savedPositions = localStorage.getItem(SHARED_POSITIONS_KEY)
+        if (savedPositions) {
+          try {
+            const positions = JSON.parse(savedPositions)
+            const filtered = positions.filter((p: any) => p.deviceInfo.id !== deviceInfo.id)
+            localStorage.setItem(SHARED_POSITIONS_KEY, JSON.stringify(filtered))
+          } catch (e) {
+            console.error("Errore nella pulizia posizioni:", e)
+          }
+        }
+      }
+    }
+  }, [isSharing, deviceInfo])
 
   return (
     <div className="space-y-6">
