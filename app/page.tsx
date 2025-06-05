@@ -463,26 +463,67 @@ export default function TrentinoBrochure() {
           <div className="mt-8 grid md:grid-cols-2 gap-6">
             <div className="bg-white p-6 rounded-lg shadow-md text-center">
               <h4 className="font-bold text-gray-800 mb-4">📱 QR Code - MeteoTrentino</h4>
-              <div className="w-32 h-32 bg-gradient-to-br from-blue-100 to-blue-200 mx-auto mb-4 flex items-center justify-center rounded-lg border-2 border-blue-300">
-                <div className="text-center">
-                  <Cloud className="w-8 h-8 text-blue-600 mx-auto mb-1" />
-                  <span className="text-xs text-blue-700 font-mono">QR</span>
-                </div>
+              <div className="w-32 h-32 mx-auto mb-4 flex items-center justify-center">
+                <img
+                  src="https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=https://www.meteotrentino.it/"
+                  alt="QR Code MeteoTrentino"
+                  className="w-full h-full"
+                />
               </div>
               <p className="text-sm text-gray-600">Scansiona per accesso rapido</p>
               <p className="text-xs text-gray-500 mt-1">meteotrentino.it</p>
             </div>
 
             <div className="bg-white p-6 rounded-lg shadow-md text-center">
-              <h4 className="font-bold text-gray-800 mb-4">📱 QR Code - App Meteo</h4>
-              <div className="w-32 h-32 bg-gradient-to-br from-green-100 to-green-200 mx-auto mb-4 flex items-center justify-center rounded-lg border-2 border-green-300">
-                <div className="text-center">
-                  <Sun className="w-8 h-8 text-green-600 mx-auto mb-1" />
-                  <span className="text-xs text-green-700 font-mono">QR</span>
-                </div>
+              <h4 className="font-bold text-gray-800 mb-4">📱 QR Code - 3B Meteo Moena</h4>
+              <div className="w-32 h-32 mx-auto mb-4 flex items-center justify-center">
+                <img
+                  src="https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=https://www.3bmeteo.com/meteo/moena"
+                  alt="QR Code 3B Meteo Moena"
+                  className="w-full h-full"
+                />
               </div>
-              <p className="text-sm text-gray-600">Scarica app 3B Meteo</p>
-              <p className="text-xs text-gray-500 mt-1">Play Store / App Store</p>
+              <p className="text-sm text-gray-600">Previsioni Moena</p>
+              <p className="text-xs text-gray-500 mt-1">3bmeteo.com/moena</p>
+            </div>
+          </div>
+
+          {/* Additional QR Codes for Key Locations */}
+          <div className="mt-6 bg-white p-6 rounded-lg shadow-md">
+            <h4 className="font-bold text-gray-800 mb-4 text-center">🗺️ QR Code Località Principali</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <img
+                  src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=https://www.3bmeteo.com/meteo/passo%2Bsan%2Bpellegrino"
+                  alt="QR Passo San Pellegrino"
+                  className="w-20 h-20 mx-auto mb-2"
+                />
+                <p className="text-xs text-gray-600">Passo S. Pellegrino</p>
+              </div>
+              <div className="text-center">
+                <img
+                  src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=https://www.meteotrentino.it/#!/content?menuItemDesktop=82&localita=canazei"
+                  alt="QR Canazei"
+                  className="w-20 h-20 mx-auto mb-2"
+                />
+                <p className="text-xs text-gray-600">Canazei</p>
+              </div>
+              <div className="text-center">
+                <img
+                  src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=https://www.3bmeteo.com/meteo/lago%2Bdi%2Bcarezza"
+                  alt="QR Lago Carezza"
+                  className="w-20 h-20 mx-auto mb-2"
+                />
+                <p className="text-xs text-gray-600">Lago Carezza</p>
+              </div>
+              <div className="text-center">
+                <img
+                  src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=https://www.meteotrentino.it/#!/content?menuItemDesktop=82&localita=cavalese"
+                  alt="QR Cavalese"
+                  className="w-20 h-20 mx-auto mb-2"
+                />
+                <p className="text-xs text-gray-600">Cavalese</p>
+              </div>
             </div>
           </div>
 
