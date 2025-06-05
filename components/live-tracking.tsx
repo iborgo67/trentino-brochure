@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Navigation, Clock, Camera, Share2, Users, Eye, RefreshCw } from "lucide-react"
+import { MapPin, Navigation, Clock, Camera, Share2, Users, Eye, RefreshCw, UserCheck } from "lucide-react"
 
 interface Position {
   latitude: number
@@ -27,6 +27,7 @@ interface DeviceInfo {
   owner: string
   color: string
   emoji: string
+  isGuest: boolean
 }
 
 interface SharedPosition {
@@ -61,14 +62,17 @@ export default function LiveTracking() {
   const [isCopied, setIsCopied] = useState(false)
 
   // Funzione per configurare il dispositivo
-  const setupDevice = (owner: "Ivan" | "Rita") => {
+  const setupDevice = (owner: "Ivan" | "Rita" | "Guest", customName?: string) => {
     const deviceId = generateDeviceId()
+    const isGuest = owner === "Guest"
+
     const device: DeviceInfo = {
       id: deviceId,
-      name: owner === "Ivan" ? "iPhone di Ivan" : "Telefono di Rita",
-      owner: owner,
-      color: owner === "Ivan" ? "blue" : "pink",
-      emoji: owner === "Ivan" ? "👨‍💻" : "👩‍💼",
+      name: isGuest ? customName || "Ospite" : owner === "Ivan" ? "iPhone di Ivan" : "Telefono di Rita",
+      owner: isGuest ? customName || "Ospite" : owner,
+      color: owner === "Ivan" ? "blue" : owner === "Rita" ? "pink" : "gray",
+      emoji: owner === "Ivan" ? "👨‍💻" : owner === "Rita" ? "👩‍💼" : "👤",
+      isGuest: isGuest,
     }
 
     setDeviceInfo(device)
@@ -124,8 +128,9 @@ export default function LiveTracking() {
             id: data.deviceId,
             owner: data.owner,
             name: `Telefono di ${data.owner}`,
-            color: data.owner === "Ivan" ? "blue" : "pink",
-            emoji: data.owner === "Ivan" ? "👨‍💻" : "👩‍💼",
+            color: data.owner === "Ivan" ? "blue" : data.owner === "Rita" ? "pink" : "gray",
+            emoji: data.owner === "Ivan" ? "👨‍💻" : data.owner === "Rita" ? "👩‍💼" : "👤",
+            isGuest: data.isGuest || false,
           },
           position: {
             latitude: data.lat,
@@ -168,6 +173,9 @@ export default function LiveTracking() {
 
   // Controlla se sei vicino a una tappa
   const checkNearbyStops = (pos: Position) => {
+    // Solo per Ivan e Rita, non per i guest
+    if (deviceInfo?.isGuest) return
+
     for (const stop of tourStops) {
       const distance = calculateDistance(pos.latitude, pos.longitude, stop.lat, stop.lng)
       if (distance <= stop.radius) {
@@ -199,6 +207,7 @@ export default function LiveTracking() {
       lng: pos.longitude,
       timestamp: pos.timestamp,
       accuracy: pos.accuracy,
+      isGuest: deviceInfo.isGuest,
     }
 
     const baseUrl = window.location.origin + window.location.pathname
@@ -209,6 +218,12 @@ export default function LiveTracking() {
   const startTracking = () => {
     if (!navigator.geolocation) {
       setError("Geolocalizzazione non supportata dal browser")
+      return
+    }
+
+    // I guest non possono fare tracking
+    if (deviceInfo?.isGuest) {
+      setError("Gli ospiti possono solo visualizzare le posizioni, non condividerle")
       return
     }
 
@@ -293,7 +308,7 @@ ${url}
       })
     } else {
       navigator.clipboard.writeText(message)
-      alert("Messaggio copiato negli appunti! Incollalo e invialo a papà.")
+      alert("Messaggio copiato negli appunti! Incollalo e invialo.")
     }
   }
 
@@ -321,12 +336,22 @@ ${url}
     checkForSharedPosition()
   }
 
+  // Setup Guest con nome personalizzato
+  const setupGuest = () => {
+    const guestName = prompt("Come ti chiami? (es: Papà, Nonna, Marco...)")
+    if (guestName && guestName.trim()) {
+      setupDevice("Guest", guestName.trim())
+    } else {
+      setupDevice("Guest")
+    }
+  }
+
   // Filtra le posizioni per escludere il dispositivo corrente
   const otherPositions = sharedPositions.filter((p) => p.deviceInfo.id !== deviceInfo?.id)
 
-  // Tutte le posizioni inclusa quella corrente
+  // Tutte le posizioni inclusa quella corrente (solo se non è guest)
   const allPositions = [...otherPositions]
-  if (position && deviceInfo && isSharing) {
+  if (position && deviceInfo && isSharing && !deviceInfo.isGuest) {
     allPositions.push({
       deviceInfo,
       position,
@@ -340,12 +365,12 @@ ${url}
       {!isDeviceSetup && (
         <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200">
           <CardHeader>
-            <CardTitle className="flex items-center text-purple-800">📱 Configura il Tuo Dispositivo</CardTitle>
+            <CardTitle className="flex items-center text-purple-800">📱 Chi Sta Usando Questo Dispositivo?</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-700 mb-6">Prima di iniziare il tracking, dimmi chi sta usando questo telefono:</p>
+            <p className="text-gray-700 mb-6">Scegli il tuo profilo per iniziare:</p>
 
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid md:grid-cols-3 gap-4">
               <button
                 onClick={() => setupDevice("Ivan")}
                 className="p-6 bg-blue-50 hover:bg-blue-100 border-2 border-blue-200 hover:border-blue-400 rounded-lg transition-all duration-200"
@@ -354,6 +379,7 @@ ${url}
                   <div className="text-4xl mb-2">👨‍💻</div>
                   <h3 className="font-bold text-blue-800">Ivan</h3>
                   <p className="text-sm text-gray-600">Il creatore del viaggio</p>
+                  <p className="text-xs text-blue-600 mt-1">Può condividere posizione</p>
                 </div>
               </button>
 
@@ -365,15 +391,35 @@ ${url}
                   <div className="text-4xl mb-2">👩‍💼</div>
                   <h3 className="font-bold text-pink-800">Rita</h3>
                   <p className="text-sm text-gray-600">La compagna di avventure</p>
+                  <p className="text-xs text-pink-600 mt-1">Può condividere posizione</p>
+                </div>
+              </button>
+
+              <button
+                onClick={setupGuest}
+                className="p-6 bg-gray-50 hover:bg-gray-100 border-2 border-gray-200 hover:border-gray-400 rounded-lg transition-all duration-200"
+              >
+                <div className="text-center">
+                  <div className="text-4xl mb-2">👤</div>
+                  <h3 className="font-bold text-gray-800">Ospite</h3>
+                  <p className="text-sm text-gray-600">Papà, famiglia, amici</p>
+                  <p className="text-xs text-gray-600 mt-1">Solo visualizzazione</p>
                 </div>
               </button>
             </div>
 
-            <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-sm text-blue-800">
-                💡 <strong>Come funziona:</strong> Quando attivi il tracking, potrai condividere un link speciale che
-                permetterà agli altri di vedere la tua posizione sulla brochure!
-              </p>
+            <div className="mt-6 grid md:grid-cols-2 gap-4">
+              <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-800">
+                  <strong>👨‍💻👩‍💼 Ivan & Rita:</strong> Possono attivare il GPS e condividere la loro posizione in
+                  tempo reale
+                </p>
+              </div>
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <p className="text-sm text-gray-800">
+                  <strong>👤 Ospiti:</strong> Possono solo vedere le posizioni condivise da Ivan e Rita
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -385,6 +431,12 @@ ${url}
           <CardTitle className="flex items-center">
             <Navigation className="w-6 h-6 mr-2 text-blue-600" />
             Live Tracking GPS
+            {deviceInfo && (
+              <Badge className={`ml-2 ${deviceInfo.isGuest ? "bg-gray-600" : "bg-blue-600"}`}>
+                {deviceInfo.emoji} {deviceInfo.owner}
+                {deviceInfo.isGuest && " (Solo visualizzazione)"}
+              </Badge>
+            )}
             {allPositions.length > 0 && (
               <Badge className="ml-2 bg-green-600">
                 <Users className="w-3 h-3 mr-1" />
@@ -401,44 +453,59 @@ ${url}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-3 mb-4">
-            {!isTracking ? (
-              <button
-                onClick={startTracking}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-              >
-                <MapPin className="w-4 h-4" />
-                Inizia Tracking
-              </button>
-            ) : (
-              <button
-                onClick={stopTracking}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-              >
-                <MapPin className="w-4 h-4" />
-                Ferma Tracking
-              </button>
-            )}
+          {deviceInfo?.isGuest ? (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center text-gray-700">
+                <UserCheck className="w-5 h-5 mr-2" />
+                <div>
+                  <h4 className="font-semibold">Modalità Ospite Attiva</h4>
+                  <p className="text-sm">
+                    Ciao <strong>{deviceInfo.owner}</strong>! Puoi vedere le posizioni condivise da Ivan e Rita, ma non
+                    puoi condividere la tua posizione.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-3 mb-4">
+              {!isTracking ? (
+                <button
+                  onClick={startTracking}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                >
+                  <MapPin className="w-4 h-4" />
+                  Inizia Tracking
+                </button>
+              ) : (
+                <button
+                  onClick={stopTracking}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                >
+                  <MapPin className="w-4 h-4" />
+                  Ferma Tracking
+                </button>
+              )}
 
-            {position && (
-              <>
-                <button
-                  onClick={sharePosition}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-                >
-                  <Share2 className="w-4 h-4" />
-                  Condividi Link
-                </button>
-                <button
-                  onClick={takeGeoPhoto}
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-                >
-                  <Camera className="w-4 h-4" />
-                  Foto GPS
-                </button>
-              </>
-            )}
-          </div>
+              {position && (
+                <>
+                  <button
+                    onClick={sharePosition}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    Condividi Link
+                  </button>
+                  <button
+                    onClick={takeGeoPhoto}
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                  >
+                    <Camera className="w-4 h-4" />
+                    Foto GPS
+                  </button>
+                </>
+              )}
+            </div>
+          )}
 
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{error}</div>
@@ -452,11 +519,11 @@ ${url}
           )}
 
           {/* Link di condivisione attivo */}
-          {shareUrl && (
+          {shareUrl && !deviceInfo?.isGuest && (
             <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
               <h4 className="font-semibold text-green-800 mb-2">🔗 Link di Condivisione Attivo</h4>
               <p className="text-sm text-green-700 mb-3">
-                <strong>IMPORTANTE:</strong> Invia questo link a papà per fargli vedere la tua posizione:
+                <strong>IMPORTANTE:</strong> Invia questo link agli ospiti per fargli vedere la tua posizione:
               </p>
               <div className="flex gap-2">
                 <input
@@ -473,7 +540,7 @@ ${url}
                 </button>
               </div>
               <p className="text-xs text-red-600 mt-2">
-                ⚠️ Papà DEVE aprire questo link esatto per vedere la tua posizione!
+                ⚠️ Gli ospiti DEVONO aprire questo link per vedere la tua posizione!
               </p>
             </div>
           )}
@@ -486,7 +553,7 @@ ${url}
           <CardHeader>
             <CardTitle className="flex items-center">
               <Users className="w-6 h-6 mr-2 text-green-600" />
-              Altri Membri del Gruppo
+              Posizioni Condivise ({otherPositions.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -495,7 +562,11 @@ ${url}
                 <div
                   key={shared.deviceInfo.id}
                   className={`p-4 rounded-lg border-2 ${
-                    shared.deviceInfo.color === "blue" ? "border-blue-200 bg-blue-50" : "border-pink-200 bg-pink-50"
+                    shared.deviceInfo.color === "blue"
+                      ? "border-blue-200 bg-blue-50"
+                      : shared.deviceInfo.color === "pink"
+                        ? "border-pink-200 bg-pink-50"
+                        : "border-gray-200 bg-gray-50"
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -505,7 +576,8 @@ ${url}
                         <h4 className="font-bold">{shared.deviceInfo.owner}</h4>
                         <p className="text-sm text-gray-600">
                           Aggiornato: {shared.lastUpdate.toLocaleTimeString()}
-                          <span className="ml-2 text-green-600">🟢 Condiviso</span>
+                          <span className="ml-2 text-green-600">🟢 Live</span>
+                          {shared.deviceInfo.isGuest && <span className="ml-2 text-gray-500">(Ospite)</span>}
                         </p>
                       </div>
                     </div>
@@ -531,9 +603,11 @@ ${url}
       )}
 
       {/* Posizione Attuale */}
-      {position && deviceInfo && (
+      {position && deviceInfo && !deviceInfo.isGuest && (
         <Card
-          className={`border-2 ${deviceInfo.color === "blue" ? "border-blue-200 bg-blue-50" : "border-pink-200 bg-pink-50"}`}
+          className={`border-2 ${
+            deviceInfo.color === "blue" ? "border-blue-200 bg-blue-50" : "border-pink-200 bg-pink-50"
+          }`}
         >
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -578,7 +652,7 @@ ${url}
                 onClick={() => setIsDeviceSetup(false)}
                 className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm"
               >
-                🔄 Cambia Dispositivo
+                🔄 Cambia Profilo
               </button>
             </div>
           </CardContent>
@@ -629,12 +703,18 @@ ${url}
 
                     {/* Overlay con informazioni posizioni */}
                     <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg">
-                      <h4 className="font-bold text-sm text-gray-800 mb-2">👥 Posizioni Condivise</h4>
+                      <h4 className="font-bold text-sm text-gray-800 mb-2">👥 Posizioni Live</h4>
                       <div className="space-y-1">
                         {allPositions.map((pos, index) => (
                           <div key={pos.deviceInfo.id} className="flex items-center text-xs">
                             <div
-                              className={`w-3 h-3 rounded-full mr-2 ${pos.deviceInfo.color === "blue" ? "bg-blue-500" : "bg-pink-500"}`}
+                              className={`w-3 h-3 rounded-full mr-2 ${
+                                pos.deviceInfo.color === "blue"
+                                  ? "bg-blue-500"
+                                  : pos.deviceInfo.color === "pink"
+                                    ? "bg-pink-500"
+                                    : "bg-gray-500"
+                              }`}
                             ></div>
                             <span className="font-medium">{pos.deviceInfo.owner}</span>
                             <span className="ml-1 text-green-600">🟢</span>
@@ -690,8 +770,8 @@ ${url}
         </Card>
       )}
 
-      {/* Tappa Attuale */}
-      {currentStop && (
+      {/* Tappa Attuale - Solo per Ivan e Rita */}
+      {currentStop && !deviceInfo?.isGuest && (
         <Card className="bg-green-50 border-green-200">
           <CardHeader>
             <CardTitle className="flex items-center text-green-800">{currentStop.emoji} Sei arrivato!</CardTitle>
@@ -708,81 +788,83 @@ ${url}
         </Card>
       )}
 
-      {/* Progresso Tour */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">🗺️ Progresso del Tour</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {tourStops.map((stop, index) => {
-              const isVisited = visitedStops.includes(stop.name)
-              const isCurrent = currentStop?.name === stop.name
+      {/* Progresso Tour - Solo per Ivan e Rita */}
+      {!deviceInfo?.isGuest && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">🗺️ Progresso del Tour</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {tourStops.map((stop, index) => {
+                const isVisited = visitedStops.includes(stop.name)
+                const isCurrent = currentStop?.name === stop.name
 
-              return (
-                <div
-                  key={stop.name}
-                  className={`flex items-center justify-between p-3 rounded-lg border ${
-                    isCurrent
-                      ? "bg-green-100 border-green-300"
-                      : isVisited
-                        ? "bg-blue-50 border-blue-200"
-                        : "bg-gray-50 border-gray-200"
-                  }`}
-                >
-                  <div className="flex items-center">
-                    <span className="text-2xl mr-3">{stop.emoji}</span>
+                return (
+                  <div
+                    key={stop.name}
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      isCurrent
+                        ? "bg-green-100 border-green-300"
+                        : isVisited
+                          ? "bg-blue-50 border-blue-200"
+                          : "bg-gray-50 border-gray-200"
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <span className="text-2xl mr-3">{stop.emoji}</span>
+                      <div>
+                        <h4 className="font-medium">{stop.name}</h4>
+                        <p className="text-sm text-gray-600">Giorno {stop.day}</p>
+                      </div>
+                    </div>
                     <div>
-                      <h4 className="font-medium">{stop.name}</h4>
-                      <p className="text-sm text-gray-600">Giorno {stop.day}</p>
+                      {isCurrent && <Badge className="bg-green-600">Qui ora!</Badge>}
+                      {isVisited && !isCurrent && <Badge className="bg-blue-600">Visitato ✓</Badge>}
+                      {!isVisited && !isCurrent && <Badge variant="outline">Da visitare</Badge>}
                     </div>
                   </div>
-                  <div>
-                    {isCurrent && <Badge className="bg-green-600">Qui ora!</Badge>}
-                    {isVisited && !isCurrent && <Badge className="bg-blue-600">Visitato ✓</Badge>}
-                    {!isVisited && !isCurrent && <Badge variant="outline">Da visitare</Badge>}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
 
-          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Progresso completamento:</span>
-              <span className="text-sm font-bold">
-                {visitedStops.length}/{tourStops.length} tappe
-              </span>
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Progresso completamento:</span>
+                <span className="text-sm font-bold">
+                  {visitedStops.length}/{tourStops.length} tappe
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${(visitedStops.length / tourStops.length) * 100}%` }}
+                ></div>
+              </div>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-              <div
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${(visitedStops.length / tourStops.length) * 100}%` }}
-              ></div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Istruzioni per la Condivisione */}
-      <Card className="bg-red-50 border-red-200">
+      <Card className="bg-blue-50 border-blue-200">
         <CardContent className="p-4">
-          <div className="flex items-center text-red-800">
+          <div className="flex items-center text-blue-800">
             <Share2 className="w-5 h-5 mr-2" />
             <div>
-              <h4 className="font-semibold">⚠️ IMPORTANTE: Come Condividere la Posizione</h4>
+              <h4 className="font-semibold">📱 Come Funziona il Sistema</h4>
               <ul className="text-sm mt-2 space-y-1">
                 <li>
-                  1. <strong>Ivan:</strong> Attiva "Inizia Tracking" per generare il link
+                  • <strong>👨‍💻👩‍💼 Ivan & Rita:</strong> Possono attivare il GPS e condividere la posizione
                 </li>
                 <li>
-                  2. <strong>Ivan:</strong> Clicca "Condividi Link" o copia il link generato
+                  • <strong>👤 Ospiti (Papà, famiglia):</strong> Ricevono il link e vedono le posizioni
                 </li>
                 <li>
-                  3. <strong>Papà:</strong> DEVE aprire il link esatto ricevuto per vedere la posizione
+                  • <strong>🔗 Link automatico:</strong> Quando attivi il tracking, si genera il link da condividere
                 </li>
                 <li>
-                  4. <strong>Nota:</strong> Il link contiene la posizione - senza di esso non funziona!
+                  • <strong>📍 Visualizzazione:</strong> Gli ospiti vedono tutte le posizioni sulla mappa
                 </li>
               </ul>
             </div>
