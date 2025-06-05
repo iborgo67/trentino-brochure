@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Navigation, Clock, Camera, Share2, Users, Eye, Wifi, WifiOff } from "lucide-react"
+import { MapPin, Navigation, Clock, Camera, Share2, Users, Eye, RefreshCw } from "lucide-react"
 
 interface Position {
   latitude: number
@@ -46,9 +46,6 @@ const tourStops: TourStop[] = [
   { name: "Cavalese", lat: 46.2897, lng: 11.4597, radius: 400, day: 6, emoji: "🌲" },
 ]
 
-// Simulazione di un database condiviso globale (in una app reale useresti Firebase/Supabase)
-const GLOBAL_POSITIONS_KEY = "trentino-global-positions"
-
 export default function LiveTracking() {
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null)
   const [isDeviceSetup, setIsDeviceSetup] = useState(false)
@@ -58,9 +55,9 @@ export default function LiveTracking() {
   const [visitedStops, setVisitedStops] = useState<string[]>([])
   const [error, setError] = useState<string>("")
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
-  const [allSharedPositions, setAllSharedPositions] = useState<SharedPosition[]>([])
+  const [sharedPositions, setSharedPositions] = useState<SharedPosition[]>([])
   const [isSharing, setIsSharing] = useState(false)
-  const [isOnline, setIsOnline] = useState(true)
+  const [shareUrl, setShareUrl] = useState<string>("")
 
   // Funzione per configurare il dispositivo
   const setupDevice = (owner: "Ivan" | "Rita") => {
@@ -95,75 +92,62 @@ export default function LiveTracking() {
       setIsDeviceSetup(true)
     }
 
-    // Carica tutte le posizioni globali condivise
-    loadGlobalPositions()
-  }, [])
-
-  // Carica posizioni globali dal localStorage condiviso
-  const loadGlobalPositions = () => {
-    try {
-      const globalPositions = localStorage.getItem(GLOBAL_POSITIONS_KEY)
-      if (globalPositions) {
-        const positions = JSON.parse(globalPositions)
-        const validPositions = positions
-          .map((p: any) => ({
-            ...p,
-            lastUpdate: new Date(p.lastUpdate),
-          }))
-          .filter((p: SharedPosition) => {
-            // Considera una posizione valida se è stata aggiornata negli ultimi 10 minuti
-            const timeDiff = Date.now() - p.lastUpdate.getTime()
-            return timeDiff < 10 * 60 * 1000 // 10 minuti
-          })
-
-        setAllSharedPositions(validPositions)
-      }
-    } catch (e) {
-      console.error("Errore nel caricamento posizioni globali:", e)
-    }
-  }
-
-  // Salva posizione nel database globale
-  const saveToGlobalPositions = (sharedPos: SharedPosition) => {
-    try {
-      const currentGlobal = localStorage.getItem(GLOBAL_POSITIONS_KEY)
-      let globalPositions: SharedPosition[] = []
-
-      if (currentGlobal) {
-        globalPositions = JSON.parse(currentGlobal).map((p: any) => ({
+    // Carica posizioni condivise salvate localmente
+    const savedPositions = localStorage.getItem("trentino-shared-positions")
+    if (savedPositions) {
+      const positions = JSON.parse(savedPositions)
+      setSharedPositions(
+        positions.map((p: any) => ({
           ...p,
           lastUpdate: new Date(p.lastUpdate),
-        }))
+        })),
+      )
+    }
+
+    // Controlla se c'è una posizione condivisa nell'URL
+    checkForSharedPosition()
+  }, [])
+
+  // Controlla se c'è una posizione condivisa nell'URL
+  const checkForSharedPosition = () => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const sharedData = urlParams.get("shared")
+
+    if (sharedData) {
+      try {
+        const data = JSON.parse(decodeURIComponent(sharedData))
+        const sharedPosition: SharedPosition = {
+          deviceInfo: {
+            id: data.deviceId,
+            owner: data.owner,
+            name: `Telefono di ${data.owner}`,
+            color: data.owner === "Ivan" ? "blue" : "pink",
+            emoji: data.owner === "Ivan" ? "👨‍💻" : "👩‍💼",
+          },
+          position: {
+            latitude: data.lat,
+            longitude: data.lng,
+            accuracy: data.accuracy,
+            timestamp: data.timestamp,
+          },
+          lastUpdate: new Date(data.timestamp),
+          isOnline: true,
+        }
+
+        // Aggiungi o aggiorna la posizione condivisa
+        setSharedPositions((prev) => {
+          const filtered = prev.filter((p) => p.deviceInfo.id !== data.deviceId)
+          const updated = [...filtered, sharedPosition]
+
+          // Salva anche localmente
+          localStorage.setItem("trentino-shared-positions", JSON.stringify(updated))
+          return updated
+        })
+      } catch (e) {
+        console.error("Errore nel caricamento posizione condivisa:", e)
       }
-
-      // Rimuovi la posizione precedente di questo dispositivo
-      globalPositions = globalPositions.filter((p) => p.deviceInfo.id !== sharedPos.deviceInfo.id)
-
-      // Aggiungi la nuova posizione
-      globalPositions.push(sharedPos)
-
-      // Rimuovi posizioni troppo vecchie (più di 10 minuti)
-      const now = Date.now()
-      globalPositions = globalPositions.filter((p) => {
-        const timeDiff = now - new Date(p.lastUpdate).getTime()
-        return timeDiff < 10 * 60 * 1000 // 10 minuti
-      })
-
-      localStorage.setItem(GLOBAL_POSITIONS_KEY, JSON.stringify(globalPositions))
-      setAllSharedPositions(globalPositions)
-    } catch (e) {
-      console.error("Errore nel salvataggio posizione globale:", e)
     }
   }
-
-  // Polling per aggiornare le posizioni di altri dispositivi
-  useEffect(() => {
-    const pollInterval = setInterval(() => {
-      loadGlobalPositions()
-    }, 5000) // Controlla ogni 5 secondi
-
-    return () => clearInterval(pollInterval)
-  }, [])
 
   // Calcola distanza tra due punti GPS
   const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -201,19 +185,21 @@ export default function LiveTracking() {
     setCurrentStop(null)
   }
 
-  // Condividi posizione automaticamente
-  const sharePositionAutomatically = (pos: Position) => {
-    if (!deviceInfo || !isSharing) return
+  // Genera URL di condivisione
+  const generateShareUrl = (pos: Position) => {
+    if (!deviceInfo) return ""
 
-    const sharedPos: SharedPosition = {
-      deviceInfo,
-      position: pos,
-      lastUpdate: new Date(),
-      isOnline: true,
+    const shareData = {
+      deviceId: deviceInfo.id,
+      owner: deviceInfo.owner,
+      lat: pos.latitude,
+      lng: pos.longitude,
+      timestamp: pos.timestamp,
+      accuracy: pos.accuracy,
     }
 
-    // Salva nel database globale
-    saveToGlobalPositions(sharedPos)
+    const baseUrl = window.location.origin + window.location.pathname
+    return `${baseUrl}?shared=${encodeURIComponent(JSON.stringify(shareData))}`
   }
 
   // Avvia tracking GPS
@@ -243,8 +229,11 @@ export default function LiveTracking() {
         setLastUpdate(new Date())
         checkNearbyStops(newPosition)
 
-        // Condividi automaticamente se la condivisione è attiva
-        sharePositionAutomatically(newPosition)
+        // Genera automaticamente l'URL di condivisione
+        if (isSharing) {
+          const url = generateShareUrl(newPosition)
+          setShareUrl(url)
+        }
       },
       (err) => {
         setError(`Errore GPS: ${err.message}`)
@@ -264,41 +253,17 @@ export default function LiveTracking() {
   // Ferma tracking
   const stopTracking = () => {
     setIsTracking(false)
-
-    // Rimuovi la posizione dal database globale quando fermi il tracking
-    if (deviceInfo) {
-      try {
-        const currentGlobal = localStorage.getItem(GLOBAL_POSITIONS_KEY)
-        if (currentGlobal) {
-          let globalPositions = JSON.parse(currentGlobal)
-          globalPositions = globalPositions.filter((p: any) => p.deviceInfo.id !== deviceInfo.id)
-          localStorage.setItem(GLOBAL_POSITIONS_KEY, JSON.stringify(globalPositions))
-          loadGlobalPositions()
-        }
-      } catch (e) {
-        console.error("Errore nella rimozione posizione:", e)
-      }
-    }
+    setShareUrl("")
   }
 
   // Attiva/disattiva condivisione
   const toggleSharing = () => {
     setIsSharing(!isSharing)
     if (!isSharing && position) {
-      sharePositionAutomatically(position)
-    } else if (isSharing && deviceInfo) {
-      // Rimuovi la posizione quando disattivi la condivisione
-      try {
-        const currentGlobal = localStorage.getItem(GLOBAL_POSITIONS_KEY)
-        if (currentGlobal) {
-          let globalPositions = JSON.parse(currentGlobal)
-          globalPositions = globalPositions.filter((p: any) => p.deviceInfo.id !== deviceInfo.id)
-          localStorage.setItem(GLOBAL_POSITIONS_KEY, JSON.stringify(globalPositions))
-          loadGlobalPositions()
-        }
-      } catch (e) {
-        console.error("Errore nella rimozione posizione:", e)
-      }
+      const url = generateShareUrl(position)
+      setShareUrl(url)
+    } else {
+      setShareUrl("")
     }
   }
 
@@ -306,18 +271,28 @@ export default function LiveTracking() {
   const sharePosition = () => {
     if (!position || !deviceInfo) return
 
+    const url = generateShareUrl(position)
     const googleMapsUrl = `https://maps.google.com/maps?q=${position.latitude},${position.longitude}`
-    const message = `🗺️ ${deviceInfo.emoji} ${deviceInfo.owner} è qui in Trentino!\n📍 ${googleMapsUrl}\n⏰ ${new Date().toLocaleString()}\n\n💡 Apri la brochure per vedere la posizione live!`
+    const message = `🗺️ ${deviceInfo.emoji} ${deviceInfo.owner} è qui in Trentino!
+
+📍 Posizione su Google Maps:
+${googleMapsUrl}
+
+🔗 Tracking live sulla brochure:
+${url}
+
+⏰ Aggiornato: ${new Date().toLocaleString()}
+
+💡 Apri il link "Tracking live" per vedere la mia posizione sulla brochure!`
 
     if (navigator.share) {
       navigator.share({
         title: `Posizione di ${deviceInfo.owner} in Trentino`,
         text: message,
-        url: googleMapsUrl,
       })
     } else {
       navigator.clipboard.writeText(message)
-      alert("Messaggio copiato negli appunti!")
+      alert("Messaggio copiato negli appunti! Incollalo e invialo a papà.")
     }
   }
 
@@ -340,8 +315,13 @@ export default function LiveTracking() {
     input.click()
   }
 
+  // Aggiorna posizioni condivise
+  const refreshSharedPositions = () => {
+    checkForSharedPosition()
+  }
+
   // Filtra le posizioni per escludere il dispositivo corrente
-  const otherPositions = allSharedPositions.filter((p) => p.deviceInfo.id !== deviceInfo?.id)
+  const otherPositions = sharedPositions.filter((p) => p.deviceInfo.id !== deviceInfo?.id)
 
   // Tutte le posizioni inclusa quella corrente
   const allPositions = [...otherPositions]
@@ -388,10 +368,10 @@ export default function LiveTracking() {
               </button>
             </div>
 
-            <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
-              <p className="text-sm text-green-800">
-                ✨ <strong>Novità!</strong> Ora tutti possono vedere le posizioni semplicemente aprendo questa pagina -
-                niente più link da condividere!
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="text-sm text-blue-800">
+                💡 <strong>Come funziona:</strong> Quando attivi il tracking, potrai condividere un link speciale che
+                permetterà agli altri di vedere la tua posizione sulla brochure!
               </p>
             </div>
           </CardContent>
@@ -410,9 +390,13 @@ export default function LiveTracking() {
                 {allPositions.length} attivi
               </Badge>
             )}
-            <div className="ml-auto flex items-center">
-              {isOnline ? <Wifi className="w-5 h-5 text-green-500" /> : <WifiOff className="w-5 h-5 text-red-500" />}
-            </div>
+            <button
+              onClick={refreshSharedPositions}
+              className="ml-auto p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100"
+              title="Aggiorna posizioni condivise"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -442,7 +426,7 @@ export default function LiveTracking() {
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
                 >
                   <Share2 className="w-4 h-4" />
-                  Condividi
+                  Condividi Link
                 </button>
                 <button
                   onClick={toggleSharing}
@@ -451,7 +435,7 @@ export default function LiveTracking() {
                   }`}
                 >
                   <Users className="w-4 h-4" />
-                  {isSharing ? "Visibile a Tutti" : "Solo Privato"}
+                  {isSharing ? "Condivisione ON" : "Condivisione OFF"}
                 </button>
                 <button
                   onClick={takeGeoPhoto}
@@ -472,6 +456,33 @@ export default function LiveTracking() {
             <div className="flex items-center text-sm text-gray-600">
               <Clock className="w-4 h-4 mr-1" />
               Ultimo aggiornamento: {lastUpdate.toLocaleTimeString()}
+            </div>
+          )}
+
+          {/* Link di condivisione attivo */}
+          {shareUrl && (
+            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <h4 className="font-semibold text-green-800 mb-2">🔗 Link di Condivisione Attivo</h4>
+              <p className="text-sm text-green-700 mb-3">
+                Invia questo link a papà per fargli vedere la tua posizione:
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={shareUrl}
+                  readOnly
+                  className="flex-1 px-3 py-2 text-xs bg-white border border-green-300 rounded font-mono"
+                />
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(shareUrl)
+                    alert("Link copiato!")
+                  }}
+                  className="px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                >
+                  Copia
+                </button>
+              </div>
             </div>
           )}
         </CardContent>
@@ -502,7 +513,7 @@ export default function LiveTracking() {
                         <h4 className="font-bold">{shared.deviceInfo.owner}</h4>
                         <p className="text-sm text-gray-600">
                           Aggiornato: {shared.lastUpdate.toLocaleTimeString()}
-                          {shared.isOnline && <span className="ml-2 text-green-600">🟢 Online</span>}
+                          <span className="ml-2 text-green-600">🟢 Condiviso</span>
                         </p>
                       </div>
                     </div>
@@ -547,7 +558,7 @@ export default function LiveTracking() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Stato:</p>
-                <p className="text-sm">{isSharing ? "🟢 Visibile a tutti" : "🔒 Solo privato"}</p>
+                <p className="text-sm">{isSharing ? "🟢 Condivisa tramite link" : "🔒 Solo privato"}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Coordinate GPS:</p>
@@ -600,7 +611,7 @@ export default function LiveTracking() {
                       <div className="text-center">
                         <MapPin className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                         <p className="text-gray-500 text-lg font-medium">Nessuna posizione condivisa</p>
-                        <p className="text-gray-400 text-sm">Attiva "Visibile a Tutti" per apparire sulla mappa</p>
+                        <p className="text-gray-400 text-sm">Attiva il tracking e condividi il link per apparire qui</p>
                       </div>
                     </div>
                   )
@@ -626,7 +637,7 @@ export default function LiveTracking() {
 
                     {/* Overlay con informazioni posizioni */}
                     <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg">
-                      <h4 className="font-bold text-sm text-gray-800 mb-2">👥 Posizioni Live</h4>
+                      <h4 className="font-bold text-sm text-gray-800 mb-2">👥 Posizioni Condivise</h4>
                       <div className="space-y-1">
                         {allPositions.map((pos, index) => (
                           <div key={pos.deviceInfo.id} className="flex items-center text-xs">
@@ -761,20 +772,26 @@ export default function LiveTracking() {
         </CardContent>
       </Card>
 
-      {/* Consigli Condivisione */}
-      <Card className="bg-green-50 border-green-200">
+      {/* Istruzioni per la Condivisione */}
+      <Card className="bg-blue-50 border-blue-200">
         <CardContent className="p-4">
-          <div className="flex items-center text-green-800">
-            <Users className="w-5 h-5 mr-2" />
+          <div className="flex items-center text-blue-800">
+            <Share2 className="w-5 h-5 mr-2" />
             <div>
-              <h4 className="font-semibold">✨ Sistema di Condivisione Automatica</h4>
+              <h4 className="font-semibold">📱 Come Condividere la Posizione</h4>
               <ul className="text-sm mt-2 space-y-1">
                 <li>
-                  • <strong>Nessun link da condividere!</strong> Tutti vedono le posizioni aprendo questa pagina
+                  1. <strong>Ivan:</strong> Attiva "Inizia Tracking" e poi "Condivisione ON"
                 </li>
-                <li>• Attiva "Visibile a Tutti" per apparire sulla mappa condivisa</li>
-                <li>• Le posizioni si aggiornano automaticamente ogni 5 secondi</li>
-                <li>• Papà può vedere Ivan semplicemente aprendo la brochure</li>
+                <li>
+                  2. <strong>Ivan:</strong> Clicca "Condividi Link" e invia il messaggio a papà
+                </li>
+                <li>
+                  3. <strong>Papà:</strong> Apre il link ricevuto e vede la posizione di Ivan
+                </li>
+                <li>
+                  4. <strong>Aggiornamenti:</strong> La posizione si aggiorna automaticamente
+                </li>
               </ul>
             </div>
           </div>
