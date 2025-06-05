@@ -18,6 +18,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import LiveTracking from "@/components/live-tracking"
 
+// Aggiungi questa costante all'inizio del file, subito dopo gli import
+const VERSION = "v2.1.0 - Live Tracking con Condivisione Link"
+const LAST_UPDATE = "6 Gennaio 2025, 15:30"
+
 export default function TrentinoBrochure() {
   const days = [
     {
@@ -156,6 +160,16 @@ export default function TrentinoBrochure() {
           >
             📄 Stampa PDF
           </button>
+        </div>
+
+        {/* Version Info */}
+        <div className="fixed bottom-4 right-4 z-40 no-print">
+          <div className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-2 shadow-lg">
+            <div className="text-xs text-gray-600">
+              <div className="font-semibold text-blue-600">{VERSION}</div>
+              <div className="text-gray-500">Aggiornato: {LAST_UPDATE}</div>
+            </div>
+          </div>
         </div>
 
         {/* Header */}
