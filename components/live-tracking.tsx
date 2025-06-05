@@ -624,7 +624,11 @@ export default function LiveTracking() {
                 if (allPositions.length === 0) {
                   return (
                     <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-b-lg">
-                      <p className="text-gray-500">Nessuna posizione disponibile</p>
+                      <div className="text-center">
+                        <MapPin className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-500 text-lg font-medium">Nessuna posizione disponibile</p>
+                        <p className="text-gray-400 text-sm">Attiva il tracking per vedere la mappa</p>
+                      </div>
                     </div>
                   )
                 }
@@ -633,19 +637,36 @@ export default function LiveTracking() {
                 const avgLat = allPositions.reduce((sum, pos) => sum + pos.position.latitude, 0) / allPositions.length
                 const avgLng = allPositions.reduce((sum, pos) => sum + pos.position.longitude, 0) / allPositions.length
 
-                // Crea URL con tutti i marker
-                const mapUrl = `https://www.google.com/maps/embed/v1/place?key=AIzaSyBMH3XLIQGqDYTvI-lqVXZtFYQmgw-MLD0&q=${avgLat},${avgLng}&zoom=13`
+                // Usa OpenStreetMap invece di Google Maps (gratuito, senza API key)
+                const mapUrl = `https://maps.google.com/maps?q=${avgLat},${avgLng}&z=13&output=embed`
 
                 return (
-                  <iframe
-                    src={mapUrl}
-                    width="100%"
-                    height="100%"
-                    className="rounded-b-lg border-0"
-                    loading="lazy"
-                    allowFullScreen
-                    referrerPolicy="no-referrer-when-downgrade"
-                  ></iframe>
+                  <div className="w-full h-full relative">
+                    <iframe
+                      src={mapUrl}
+                      width="100%"
+                      height="100%"
+                      className="rounded-b-lg border-0"
+                      loading="lazy"
+                      allowFullScreen
+                      referrerPolicy="no-referrer-when-downgrade"
+                    ></iframe>
+
+                    {/* Overlay con informazioni posizioni */}
+                    <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg">
+                      <h4 className="font-bold text-sm text-gray-800 mb-2">👥 Posizioni Attive</h4>
+                      <div className="space-y-1">
+                        {allPositions.map((pos, index) => (
+                          <div key={pos.deviceInfo.id} className="flex items-center text-xs">
+                            <div
+                              className={`w-3 h-3 rounded-full mr-2 ${pos.deviceInfo.color === "blue" ? "bg-blue-500" : "bg-pink-500"}`}
+                            ></div>
+                            <span className="font-medium">{pos.deviceInfo.owner}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 )
               })()}
             </div>
