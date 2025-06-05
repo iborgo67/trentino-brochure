@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, Navigation, Clock, Camera, Share2, Battery } from "lucide-react"
@@ -21,6 +21,14 @@ interface TourStop {
   emoji: string
 }
 
+interface DeviceInfo {
+  id: string
+  name: string
+  owner: string
+  color: string
+  emoji: string
+}
+
 const tourStops: TourStop[] = [
   { name: "Moena Centro", lat: 46.3769, lng: 11.6769, radius: 300, day: 1, emoji: "🏘️" },
   { name: "Passo San Pellegrino", lat: 46.3833, lng: 11.7833, radius: 500, day: 2, emoji: "🏔️" },
@@ -32,12 +40,48 @@ const tourStops: TourStop[] = [
 ]
 
 export default function LiveTracking() {
+  const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null)
+  const [isDeviceSetup, setIsDeviceSetup] = useState(false)
   const [position, setPosition] = useState<Position | null>(null)
   const [isTracking, setIsTracking] = useState(false)
   const [currentStop, setCurrentStop] = useState<TourStop | null>(null)
   const [visitedStops, setVisitedStops] = useState<string[]>([])
   const [error, setError] = useState<string>("")
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
+
+  // Funzione per configurare il dispositivo
+  const setupDevice = (owner: "Ivan" | "Rita") => {
+    const deviceId = generateDeviceId()
+    const device: DeviceInfo = {
+      id: deviceId,
+      name: owner === "Ivan" ? "iPhone di Ivan" : "Telefono di Rita",
+      owner: owner,
+      color: owner === "Ivan" ? "blue" : "pink",
+      emoji: owner === "Ivan" ? "👨‍💻" : "👩‍💼",
+    }
+
+    setDeviceInfo(device)
+    setIsDeviceSetup(true)
+
+    // Salva nelle preferenze del browser
+    localStorage.setItem("trentino-device", JSON.stringify(device))
+  }
+
+  // Genera ID univoco del dispositivo
+  const generateDeviceId = (): string => {
+    const timestamp = Date.now().toString(36)
+    const random = Math.random().toString(36).substr(2, 5)
+    return `device_${timestamp}_${random}`
+  }
+
+  // Carica configurazione salvata
+  useEffect(() => {
+    const savedDevice = localStorage.getItem("trentino-device")
+    if (savedDevice) {
+      setDeviceInfo(JSON.parse(savedDevice))
+      setIsDeviceSetup(true)
+    }
+  }, [])
 
   // Calcola distanza tra due punti GPS
   const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -124,14 +168,14 @@ export default function LiveTracking() {
 
   // Condividi posizione
   const sharePosition = () => {
-    if (!position) return
+    if (!position || !deviceInfo) return
 
     const googleMapsUrl = `https://maps.google.com/maps?q=${position.latitude},${position.longitude}`
-    const message = `🗺️ Sono qui in Trentino! ${googleMapsUrl}`
+    const message = `🗺️ ${deviceInfo.emoji} ${deviceInfo.owner} è qui in Trentino!\n📍 ${googleMapsUrl}\n⏰ ${new Date().toLocaleString()}`
 
     if (navigator.share) {
       navigator.share({
-        title: "La mia posizione in Trentino",
+        title: `Posizione di ${deviceInfo.owner} in Trentino`,
         text: message,
         url: googleMapsUrl,
       })
@@ -163,6 +207,46 @@ export default function LiveTracking() {
 
   return (
     <div className="space-y-6">
+      {!isDeviceSetup && (
+        <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200">
+          <CardHeader>
+            <CardTitle className="flex items-center text-purple-800">📱 Configura il Tuo Dispositivo</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-700 mb-6">Prima di iniziare il tracking, dimmi chi sta usando questo telefono:</p>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <button
+                onClick={() => setupDevice("Ivan")}
+                className="p-6 bg-blue-50 hover:bg-blue-100 border-2 border-blue-200 hover:border-blue-400 rounded-lg transition-all duration-200"
+              >
+                <div className="text-center">
+                  <div className="text-4xl mb-2">👨‍💻</div>
+                  <h3 className="font-bold text-blue-800">Ivan</h3>
+                  <p className="text-sm text-gray-600">Il creatore del viaggio</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setupDevice("Rita")}
+                className="p-6 bg-pink-50 hover:bg-pink-100 border-2 border-pink-200 hover:border-pink-400 rounded-lg transition-all duration-200"
+              >
+                <div className="text-center">
+                  <div className="text-4xl mb-2">👩‍💼</div>
+                  <h3 className="font-bold text-pink-800">Rita</h3>
+                  <p className="text-sm text-gray-600">La compagna di avventure</p>
+                </div>
+              </button>
+            </div>
+
+            <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+              <p className="text-sm text-yellow-800">
+                💡 Questa configurazione verrà salvata sul dispositivo e permetterà di distinguere le vostre posizioni
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       {/* Controlli Tracking */}
       <Card className="bg-gradient-to-r from-blue-50 to-green-50">
         <CardHeader>
@@ -225,16 +309,27 @@ export default function LiveTracking() {
       </Card>
 
       {/* Posizione Attuale */}
-      {position && (
-        <Card>
+      {position && deviceInfo && (
+        <Card
+          className={`border-2 ${deviceInfo.color === "blue" ? "border-blue-200 bg-blue-50" : "border-pink-200 bg-pink-50"}`}
+        >
           <CardHeader>
             <CardTitle className="flex items-center">
+              <span className="text-2xl mr-2">{deviceInfo.emoji}</span>
               <MapPin className="w-6 h-6 mr-2 text-green-600" />
-              La Tua Posizione
+              Posizione di {deviceInfo.owner}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-600">Dispositivo:</p>
+                <p className="font-medium">{deviceInfo.name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">ID Dispositivo:</p>
+                <p className="font-mono text-xs text-gray-500">{deviceInfo.id.slice(-8)}</p>
+              </div>
               <div>
                 <p className="text-sm text-gray-600">Coordinate GPS:</p>
                 <p className="font-mono text-sm">
@@ -247,7 +342,7 @@ export default function LiveTracking() {
               </div>
             </div>
 
-            <div className="mt-4">
+            <div className="mt-4 flex gap-3">
               <a
                 href={`https://maps.google.com/maps?q=${position.latitude},${position.longitude}`}
                 target="_blank"
@@ -256,6 +351,13 @@ export default function LiveTracking() {
               >
                 🗺️ Apri su Google Maps
               </a>
+
+              <button
+                onClick={() => setIsDeviceSetup(false)}
+                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm"
+              >
+                🔄 Cambia Dispositivo
+              </button>
             </div>
           </CardContent>
         </Card>
