@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Navigation, Clock, Camera, Share2, Battery } from "lucide-react"
+import { MapPin, Navigation, Clock, Camera, Share2, Battery, Users, Eye } from "lucide-react"
 
 interface Position {
   latitude: number
@@ -29,6 +29,12 @@ interface DeviceInfo {
   emoji: string
 }
 
+interface SharedPosition {
+  deviceInfo: DeviceInfo
+  position: Position
+  lastUpdate: Date
+}
+
 const tourStops: TourStop[] = [
   { name: "Moena Centro", lat: 46.3769, lng: 11.6769, radius: 300, day: 1, emoji: "🏘️" },
   { name: "Passo San Pellegrino", lat: 46.3833, lng: 11.7833, radius: 500, day: 2, emoji: "🏔️" },
@@ -48,6 +54,8 @@ export default function LiveTracking() {
   const [visitedStops, setVisitedStops] = useState<string[]>([])
   const [error, setError] = useState<string>("")
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
+  const [sharedPositions, setSharedPositions] = useState<SharedPosition[]>([])
+  const [isSharing, setIsSharing] = useState(false)
 
   // Funzione per configurare il dispositivo
   const setupDevice = (owner: "Ivan" | "Rita") => {
@@ -81,7 +89,26 @@ export default function LiveTracking() {
       setDeviceInfo(JSON.parse(savedDevice))
       setIsDeviceSetup(true)
     }
+
+    // Carica posizioni condivise salvate
+    const savedPositions = localStorage.getItem("trentino-shared-positions")
+    if (savedPositions) {
+      const positions = JSON.parse(savedPositions)
+      setSharedPositions(
+        positions.map((p: any) => ({
+          ...p,
+          lastUpdate: new Date(p.lastUpdate),
+        })),
+      )
+    }
   }, [])
+
+  // Salva posizioni condivise
+  useEffect(() => {
+    if (sharedPositions.length > 0) {
+      localStorage.setItem("trentino-shared-positions", JSON.stringify(sharedPositions))
+    }
+  }, [sharedPositions])
 
   // Calcola distanza tra due punti GPS
   const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -119,6 +146,75 @@ export default function LiveTracking() {
     setCurrentStop(null)
   }
 
+  // Condividi posizione con altri dispositivi
+  const sharePositionWithOthers = (pos: Position) => {
+    if (!deviceInfo) return
+
+    const sharedPos: SharedPosition = {
+      deviceInfo,
+      position: pos,
+      lastUpdate: new Date(),
+    }
+
+    // Aggiorna o aggiungi la posizione di questo dispositivo
+    setSharedPositions((prev) => {
+      const filtered = prev.filter((p) => p.deviceInfo.id !== deviceInfo.id)
+      return [...filtered, sharedPos]
+    })
+
+    // Genera link di condivisione
+    const shareData = {
+      deviceId: deviceInfo.id,
+      owner: deviceInfo.owner,
+      lat: pos.latitude,
+      lng: pos.longitude,
+      timestamp: pos.timestamp,
+      accuracy: pos.accuracy,
+    }
+
+    const shareUrl = `${window.location.origin}${window.location.pathname}?shared=${encodeURIComponent(JSON.stringify(shareData))}`
+
+    // Copia negli appunti per condivisione
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      console.log("Link di condivisione copiato!")
+    })
+  }
+
+  // Carica posizione condivisa da URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const sharedData = urlParams.get("shared")
+
+    if (sharedData) {
+      try {
+        const data = JSON.parse(decodeURIComponent(sharedData))
+        const sharedPosition: SharedPosition = {
+          deviceInfo: {
+            id: data.deviceId,
+            owner: data.owner,
+            name: `Telefono di ${data.owner}`,
+            color: data.owner === "Ivan" ? "blue" : "pink",
+            emoji: data.owner === "Ivan" ? "👨‍💻" : "👩‍💼",
+          },
+          position: {
+            latitude: data.lat,
+            longitude: data.lng,
+            accuracy: data.accuracy,
+            timestamp: data.timestamp,
+          },
+          lastUpdate: new Date(data.timestamp),
+        }
+
+        setSharedPositions((prev) => {
+          const filtered = prev.filter((p) => p.deviceInfo.id !== data.deviceId)
+          return [...filtered, sharedPosition]
+        })
+      } catch (e) {
+        console.error("Errore nel caricamento posizione condivisa:", e)
+      }
+    }
+  }, [])
+
   // Avvia tracking GPS
   const startTracking = () => {
     if (!navigator.geolocation) {
@@ -145,6 +241,11 @@ export default function LiveTracking() {
         setPosition(newPosition)
         setLastUpdate(new Date())
         checkNearbyStops(newPosition)
+
+        // Condividi automaticamente se abilitato
+        if (isSharing) {
+          sharePositionWithOthers(newPosition)
+        }
       },
       (err) => {
         setError(`Errore GPS: ${err.message}`)
@@ -166,18 +267,38 @@ export default function LiveTracking() {
     setIsTracking(false)
   }
 
-  // Condividi posizione
+  // Attiva/disattiva condivisione
+  const toggleSharing = () => {
+    setIsSharing(!isSharing)
+    if (!isSharing && position) {
+      sharePositionWithOthers(position)
+    }
+  }
+
+  // Condividi posizione manualmente
   const sharePosition = () => {
     if (!position || !deviceInfo) return
 
+    sharePositionWithOthers(position)
+
+    const shareData = {
+      deviceId: deviceInfo.id,
+      owner: deviceInfo.owner,
+      lat: position.latitude,
+      lng: position.longitude,
+      timestamp: position.timestamp,
+      accuracy: position.accuracy,
+    }
+
+    const shareUrl = `${window.location.origin}${window.location.pathname}?shared=${encodeURIComponent(JSON.stringify(shareData))}`
     const googleMapsUrl = `https://maps.google.com/maps?q=${position.latitude},${position.longitude}`
-    const message = `🗺️ ${deviceInfo.emoji} ${deviceInfo.owner} è qui in Trentino!\n📍 ${googleMapsUrl}\n⏰ ${new Date().toLocaleString()}`
+    const message = `🗺️ ${deviceInfo.emoji} ${deviceInfo.owner} è qui in Trentino!\n📍 ${googleMapsUrl}\n🔗 Tracking live: ${shareUrl}\n⏰ ${new Date().toLocaleString()}`
 
     if (navigator.share) {
       navigator.share({
         title: `Posizione di ${deviceInfo.owner} in Trentino`,
         text: message,
-        url: googleMapsUrl,
+        url: shareUrl,
       })
     } else {
       navigator.clipboard.writeText(message)
@@ -197,12 +318,35 @@ export default function LiveTracking() {
     input.onchange = (e) => {
       const file = (e.target as HTMLInputElement).files?.[0]
       if (file) {
-        // Qui potresti salvare la foto con coordinate GPS
         console.log("Foto scattata a:", position.latitude, position.longitude)
       }
     }
 
     input.click()
+  }
+
+  // Genera URL mappa con tutte le posizioni
+  const generateMapUrl = () => {
+    const allPositions = [...sharedPositions]
+    if (position && deviceInfo) {
+      allPositions.push({
+        deviceInfo,
+        position,
+        lastUpdate: new Date(),
+      })
+    }
+
+    if (allPositions.length === 0) return ""
+
+    const markers = allPositions
+      .map(
+        (pos, index) =>
+          `markers=color:${pos.deviceInfo.color}%7Clabel:${pos.deviceInfo.owner[0]}%7C${pos.position.latitude},${pos.position.longitude}`,
+      )
+      .join("&")
+
+    const center = allPositions[0]
+    return `https://maps.googleapis.com/maps/api/staticmap?center=${center.position.latitude},${center.position.longitude}&zoom=12&size=600x400&${markers}&key=YOUR_API_KEY`
   }
 
   return (
@@ -241,18 +385,26 @@ export default function LiveTracking() {
 
             <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
               <p className="text-sm text-yellow-800">
-                💡 Questa configurazione verrà salvata sul dispositivo e permetterà di distinguere le vostre posizioni
+                💡 Questa configurazione verrà salvata sul dispositivo e permetterà di condividere la posizione con
+                l'altro
               </p>
             </div>
           </CardContent>
         </Card>
       )}
+
       {/* Controlli Tracking */}
       <Card className="bg-gradient-to-r from-blue-50 to-green-50">
         <CardHeader>
           <CardTitle className="flex items-center">
             <Navigation className="w-6 h-6 mr-2 text-blue-600" />
             Live Tracking GPS
+            {sharedPositions.length > 0 && (
+              <Badge className="ml-2 bg-green-600">
+                <Users className="w-3 h-3 mr-1" />
+                {sharedPositions.length + (position ? 1 : 0)} attivi
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -285,6 +437,15 @@ export default function LiveTracking() {
                   Condividi
                 </button>
                 <button
+                  onClick={toggleSharing}
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-white ${
+                    isSharing ? "bg-orange-600 hover:bg-orange-700" : "bg-gray-600 hover:bg-gray-700"
+                  }`}
+                >
+                  <Users className="w-4 h-4" />
+                  {isSharing ? "Condivisione ON" : "Condivisione OFF"}
+                </button>
+                <button
                   onClick={takeGeoPhoto}
                   className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
                 >
@@ -308,6 +469,53 @@ export default function LiveTracking() {
         </CardContent>
       </Card>
 
+      {/* Posizioni Condivise */}
+      {sharedPositions.length > 0 && (
+        <Card className="bg-gradient-to-r from-green-50 to-blue-50">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Users className="w-6 h-6 mr-2 text-green-600" />
+              Posizioni Condivise
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {sharedPositions.map((shared) => (
+                <div
+                  key={shared.deviceInfo.id}
+                  className={`p-4 rounded-lg border-2 ${
+                    shared.deviceInfo.color === "blue" ? "border-blue-200 bg-blue-50" : "border-pink-200 bg-pink-50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center">
+                      <span className="text-2xl mr-2">{shared.deviceInfo.emoji}</span>
+                      <div>
+                        <h4 className="font-bold">{shared.deviceInfo.owner}</h4>
+                        <p className="text-sm text-gray-600">Aggiornato: {shared.lastUpdate.toLocaleTimeString()}</p>
+                      </div>
+                    </div>
+                    <a
+                      href={`https://maps.google.com/maps?q=${shared.position.latitude},${shared.position.longitude}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                    >
+                      <Eye className="w-4 h-4 inline mr-1" />
+                      Vedi
+                    </a>
+                  </div>
+                  <p className="text-sm font-mono">
+                    📍 {shared.position.latitude.toFixed(6)}, {shared.position.longitude.toFixed(6)}
+                  </p>
+                  <p className="text-xs text-gray-500">Precisione: ±{Math.round(shared.position.accuracy)}m</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Posizione Attuale */}
       {position && deviceInfo && (
         <Card
@@ -317,7 +525,7 @@ export default function LiveTracking() {
             <CardTitle className="flex items-center">
               <span className="text-2xl mr-2">{deviceInfo.emoji}</span>
               <MapPin className="w-6 h-6 mr-2 text-green-600" />
-              Posizione di {deviceInfo.owner}
+              La Tua Posizione ({deviceInfo.owner})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -357,6 +565,97 @@ export default function LiveTracking() {
                 className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm"
               >
                 🔄 Cambia Dispositivo
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Mappa Integrata con Tutte le Posizioni */}
+      {(position || sharedPositions.length > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>🗺️ Mappa Live di Tutti</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center mb-4">
+              {(() => {
+                const allPositions = [...sharedPositions]
+                if (position && deviceInfo) {
+                  allPositions.push({
+                    deviceInfo,
+                    position,
+                    lastUpdate: new Date(),
+                  })
+                }
+
+                if (allPositions.length === 0) return <p>Nessuna posizione disponibile</p>
+
+                // Calcola centro mappa
+                const avgLat = allPositions.reduce((sum, pos) => sum + pos.position.latitude, 0) / allPositions.length
+                const avgLng = allPositions.reduce((sum, pos) => sum + pos.position.longitude, 0) / allPositions.length
+
+                // Crea URL con tutti i marker
+                const markers = allPositions
+                  .map((pos) => `${pos.position.latitude},${pos.position.longitude}`)
+                  .join("|")
+
+                const mapUrl = `https://maps.google.com/maps?q=${avgLat},${avgLng}&z=13&output=embed`
+
+                return <iframe src={mapUrl} width="100%" height="100%" className="rounded-lg" loading="lazy"></iframe>
+              })()}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <a
+                href={(() => {
+                  const allPositions = [...sharedPositions]
+                  if (position && deviceInfo) {
+                    allPositions.push({
+                      deviceInfo,
+                      position,
+                      lastUpdate: new Date(),
+                    })
+                  }
+
+                  if (allPositions.length === 0) return "#"
+
+                  const waypoints = allPositions
+                    .map((pos) => `${pos.position.latitude},${pos.position.longitude}`)
+                    .join("/")
+
+                  return `https://maps.google.com/maps/dir/${waypoints}`
+                })()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-center text-sm"
+              >
+                🧭 Navigazione Gruppo
+              </a>
+              <button
+                onClick={() => {
+                  const allPositions = [...sharedPositions]
+                  if (position && deviceInfo) {
+                    allPositions.push({
+                      deviceInfo,
+                      position,
+                      lastUpdate: new Date(),
+                    })
+                  }
+
+                  const positionsText = allPositions
+                    .map(
+                      (pos) =>
+                        `${pos.deviceInfo.emoji} ${pos.deviceInfo.owner}: ${pos.position.latitude.toFixed(6)}, ${pos.position.longitude.toFixed(6)}`,
+                    )
+                    .join("\n")
+
+                  navigator.clipboard.writeText(positionsText)
+                  alert("Posizioni copiate!")
+                }}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-center text-sm"
+              >
+                📋 Copia Posizioni
               </button>
             </div>
           </CardContent>
@@ -437,57 +736,18 @@ export default function LiveTracking() {
         </CardContent>
       </Card>
 
-      {/* Mappa Live */}
-      {position && (
-        <Card>
-          <CardHeader>
-            <CardTitle>🗺️ Mappa Live</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center mb-4">
-              <iframe
-                src={`https://maps.google.com/maps?q=${position.latitude},${position.longitude}&z=15&output=embed`}
-                width="100%"
-                height="100%"
-                className="rounded-lg"
-                loading="lazy"
-              ></iframe>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <a
-                href={`https://maps.google.com/maps/dir/?api=1&destination=${position.latitude},${position.longitude}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-center text-sm"
-              >
-                🧭 Navigazione
-              </a>
-              <a
-                href={`https://maps.google.com/maps?q=${position.latitude},${position.longitude}&layer=t`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-center text-sm"
-              >
-                🛰️ Vista Satellite
-              </a>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Consigli Batteria */}
+      {/* Consigli Condivisione */}
       <Card className="bg-yellow-50 border-yellow-200">
         <CardContent className="p-4">
           <div className="flex items-center text-yellow-800">
             <Battery className="w-5 h-5 mr-2" />
             <div>
-              <h4 className="font-semibold">💡 Consigli per il Tracking</h4>
+              <h4 className="font-semibold">💡 Consigli per la Condivisione</h4>
               <ul className="text-sm mt-2 space-y-1">
-                <li>• Porta un power bank per la batteria</li>
-                <li>• Attiva la modalità risparmio energetico</li>
-                <li>• Scarica le mappe offline prima di partire</li>
-                <li>• Condividi la posizione con Rita per sicurezza</li>
+                <li>• Attiva "Condivisione ON" per aggiornamenti automatici</li>
+                <li>• Condividi il link con Rita per vedere la tua posizione</li>
+                <li>• Le posizioni vengono salvate localmente su ogni dispositivo</li>
+                <li>• Usa "Navigazione Gruppo" per raggiungervi</li>
               </ul>
             </div>
           </div>
