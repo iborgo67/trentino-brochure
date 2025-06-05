@@ -150,10 +150,22 @@ export default function LiveTracking() {
   const sharePositionWithOthers = (pos: Position) => {
     if (!deviceInfo) return
 
+    // Controlla se è passato abbastanza tempo dall'ultimo aggiornamento (30 secondi)
+    const lastSharedPosition = sharedPositions.find((p) => p.deviceInfo.id === deviceInfo.id)
+    const now = new Date()
+
+    if (lastSharedPosition) {
+      const timeSinceLastUpdate = now.getTime() - lastSharedPosition.lastUpdate.getTime()
+      // Aggiorna solo se sono passati almeno 30 secondi
+      if (timeSinceLastUpdate < 30000) {
+        return // Salta l'aggiornamento se troppo frequente
+      }
+    }
+
     const sharedPos: SharedPosition = {
       deviceInfo,
       position: pos,
-      lastUpdate: new Date(),
+      lastUpdate: now,
     }
 
     // Aggiorna o aggiungi la posizione di questo dispositivo
@@ -242,10 +254,8 @@ export default function LiveTracking() {
         setLastUpdate(new Date())
         checkNearbyStops(newPosition)
 
-        // Condividi automaticamente se abilitato
-        if (isSharing) {
-          sharePositionWithOthers(newPosition)
-        }
+        // Non condividere automaticamente ad ogni aggiornamento
+        // La condivisione avverrà tramite l'intervallo definito nell'useEffect
       },
       (err) => {
         setError(`Errore GPS: ${err.message}`)
@@ -348,6 +358,20 @@ export default function LiveTracking() {
     const center = allPositions[0]
     return `https://maps.googleapis.com/maps/api/staticmap?center=${center.position.latitude},${center.position.longitude}&zoom=12&size=600x400&${markers}&key=YOUR_API_KEY`
   }
+
+  // Aggiungi un effetto per stabilizzare la mappa e prevenire il lampeggiamento
+
+  // Aggiungi questo useEffect dopo gli altri useEffect esistenti
+  useEffect(() => {
+    // Stabilizza la mappa prevenendo aggiornamenti troppo frequenti
+    const mapUpdateInterval = setInterval(() => {
+      if (position && isSharing) {
+        sharePositionWithOthers(position)
+      }
+    }, 30000) // Aggiorna ogni 30 secondi invece di ad ogni cambio di posizione
+
+    return () => clearInterval(mapUpdateInterval)
+  }, [position, isSharing])
 
   return (
     <div className="space-y-6">
@@ -573,40 +597,60 @@ export default function LiveTracking() {
 
       {/* Mappa Integrata con Tutte le Posizioni */}
       {(position || sharedPositions.length > 0) && (
-        <Card>
-          <CardHeader>
-            <CardTitle>🗺️ Mappa Live di Tutti</CardTitle>
+        <Card className="shadow-lg border-2 border-blue-300">
+          <CardHeader className="bg-blue-50">
+            <CardTitle className="flex items-center">
+              <MapPin className="w-6 h-6 mr-2 text-blue-600" />
+              🗺️ Mappa Live di Tutti
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center mb-4">
+          <CardContent className="p-0">
+            <div className="w-full h-[400px] md:h-[500px] relative">
               {(() => {
+                // Memorizza le posizioni in una variabile stabile per evitare il lampeggiamento
                 const allPositions = [...sharedPositions]
                 if (position && deviceInfo) {
-                  allPositions.push({
-                    deviceInfo,
-                    position,
-                    lastUpdate: new Date(),
-                  })
+                  // Aggiungi la posizione corrente solo se non è già presente
+                  const isCurrentDeviceShared = sharedPositions.some((p) => p.deviceInfo.id === deviceInfo.id)
+                  if (!isCurrentDeviceShared) {
+                    allPositions.push({
+                      deviceInfo,
+                      position,
+                      lastUpdate: new Date(),
+                    })
+                  }
                 }
 
-                if (allPositions.length === 0) return <p>Nessuna posizione disponibile</p>
+                if (allPositions.length === 0) {
+                  return (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-b-lg">
+                      <p className="text-gray-500">Nessuna posizione disponibile</p>
+                    </div>
+                  )
+                }
 
                 // Calcola centro mappa
                 const avgLat = allPositions.reduce((sum, pos) => sum + pos.position.latitude, 0) / allPositions.length
                 const avgLng = allPositions.reduce((sum, pos) => sum + pos.position.longitude, 0) / allPositions.length
 
                 // Crea URL con tutti i marker
-                const markers = allPositions
-                  .map((pos) => `${pos.position.latitude},${pos.position.longitude}`)
-                  .join("|")
+                const mapUrl = `https://www.google.com/maps/embed/v1/place?key=AIzaSyBMH3XLIQGqDYTvI-lqVXZtFYQmgw-MLD0&q=${avgLat},${avgLng}&zoom=13`
 
-                const mapUrl = `https://maps.google.com/maps?q=${avgLat},${avgLng}&z=13&output=embed`
-
-                return <iframe src={mapUrl} width="100%" height="100%" className="rounded-lg" loading="lazy"></iframe>
+                return (
+                  <iframe
+                    src={mapUrl}
+                    width="100%"
+                    height="100%"
+                    className="rounded-b-lg border-0"
+                    loading="lazy"
+                    allowFullScreen
+                    referrerPolicy="no-referrer-when-downgrade"
+                  ></iframe>
+                )
               })()}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 p-4 bg-blue-50 rounded-b-lg">
               <a
                 href={(() => {
                   const allPositions = [...sharedPositions]
@@ -620,15 +664,20 @@ export default function LiveTracking() {
 
                   if (allPositions.length === 0) return "#"
 
-                  const waypoints = allPositions
-                    .map((pos) => `${pos.position.latitude},${pos.position.longitude}`)
-                    .join("/")
+                  // Usa il primo punto come origine
+                  const origin = `${allPositions[0].position.latitude},${allPositions[0].position.longitude}`
 
-                  return `https://maps.google.com/maps/dir/${waypoints}`
+                  // Usa gli altri punti come destinazioni
+                  const destinations = allPositions
+                    .slice(1)
+                    .map((pos) => `${pos.position.latitude},${pos.position.longitude}`)
+                    .join("|")
+
+                  return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${origin}&waypoints=${destinations}`
                 })()}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-center text-sm"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg text-center font-medium"
               >
                 🧭 Navigazione Gruppo
               </a>
@@ -651,9 +700,9 @@ export default function LiveTracking() {
                     .join("\n")
 
                   navigator.clipboard.writeText(positionsText)
-                  alert("Posizioni copiate!")
+                  alert("Posizioni copiate negli appunti!")
                 }}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-center text-sm"
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg text-center font-medium"
               >
                 📋 Copia Posizioni
               </button>
