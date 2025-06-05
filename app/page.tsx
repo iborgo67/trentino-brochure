@@ -476,4 +476,133 @@ export default function TrentinoBrochure() {
           {/* QR Code Section */}
           <div className="mt-8 grid md:grid-cols-2 gap-6">
             <div className="bg-white p-6 rounded-lg shadow-md text-center">
-              <h\
+              <h4 className="font-bold text-gray-800 mb-4">📱 QR Code - MeteoTrentino</h4>
+              <div className="w-32 h-32 mx-auto mb-4 flex items-center justify-center">
+                <img
+                  src="https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=https://www.meteotrentino.it/"
+                  alt="QR Code MeteoTrentino"
+                  className="w-full h-full"
+                />
+              </div>
+              <p className="text-sm text-gray-600">Scansiona per accesso rapido</p>
+              <p className="text-xs text-gray-500 mt-1">meteotrentino.it</p>
+            </div>
+
+            <div className="bg-white p-6 rounded-lg shadow-md text-center">
+              <h4 className="font-bold text-gray-800 mb-4">📱 QR Code - 3B Meteo Moena</h4>
+              <div className="w-32 h-32 mx-auto mb-4 flex items-center justify-center">
+                <img
+                  src="https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=https://www.3bmeteo.com/meteo/moena"
+                  alt="QR Code 3B Meteo Moena"
+                  className="w-full h-full"
+                />
+              </div>
+              <p className="text-sm text-gray-600">Previsioni Moena</p>
+              <p className="text-xs text-gray-500 mt-1">3bmeteo.com/moena</p>
+            </div>
+          </div>
+
+          {/* Additional QR Codes for Key Locations */}
+          <div className="mt-6 bg-white p-6 rounded-lg shadow-md">
+            <h4 className="font-bold text-gray-800 mb-4 text-center">🗺️ QR Code Località Principali</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <img
+                  src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=https://www.3bmeteo.com/meteo/passo%2Bsan%2Bpellegrino"
+                  alt="QR Passo San Pellegrino"
+                  className="w-20 h-20 mx-auto mb-2"
+                />
+                <p className="text-xs text-gray-600">Passo S. Pellegrino</p>
+              </div>
+              <div className="text-center">
+                <img
+                  src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=https://www.meteotrentino.it/#!/content?menuItemDesktop=82&localita=canazei"
+                  alt="QR Canazei"
+                  className="w-20 h-20 mx-auto mb-2"
+                />
+                <p className="text-xs text-gray-600">Canazei</p>
+              </div>
+              <div className="text-center">
+                <img
+                  src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=https://www.3bmeteo.com/meteo/lago%2Bdi%2Bcarezza"
+                  alt="QR Lago Carezza"
+                  className="w-20 h-20 mx-auto mb-2"
+                />
+                <p className="text-xs text-gray-600">Lago Carezza</p>
+              </div>
+              <div className="text-center">
+                <img
+                  src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=https://www.meteotrentino.it/#!/content?menuItemDesktop=82&localita=cavalese"
+                  alt="QR Cavalese"
+                  className="w-20 h-20 mx-auto mb-2"
+                />
+                <p className="text-xs text-gray-600">Cavalese</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Weather Checklist */}
+          <div className="mt-8 bg-yellow-50 p-6 rounded-lg border border-yellow-200">
+            <h4 className="font-bold text-gray-800 mb-4 flex items-center">✅ Checklist Meteo Pre-Partenza</h4>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="flex items-center">
+                  <input type="checkbox" className="mr-3 w-4 h-4 text-green-600" />
+                  <span className="text-sm">Controllare previsioni 3 giorni prima</span>
+                </label>
+                <label className="flex items-center">
+                  <input type="checkbox" className="mr-3 w-4 h-4 text-green-600" />
+                  <span className="text-sm">Verificare condizioni alta quota</span>
+                </label>
+                <label className="flex items-center">
+                  <input type="checkbox" className="mr-3 w-4 h-4 text-green-600" />
+                  <span className="text-sm">Scaricare app meteo offline</span>
+                </label>
+              </div>
+              <div className="space-y-2">
+                <label className="flex items-center">
+                  <input type="checkbox" className="mr-3 w-4 h-4 text-green-600" />
+                  <span className="text-sm">Preparare abbigliamento per pioggia</span>
+                </label>
+                <label className="flex items-center">
+                  <input type="checkbox" className="mr-3 w-4 h-4 text-green-600" />
+                  <span className="text-sm">Controllare apertura funivie</span>
+                </label>
+                <label className="flex items-center">
+                  <input type="checkbox" className="mr-3 w-4 h-4 text-green-600" />
+                  <span className="text-sm">Salvare numeri emergenza meteo</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Emergency Weather Info */}
+          <div className="mt-6 bg-red-50 p-4 rounded-lg border border-red-200">
+            <div className="flex items-center text-red-700">
+              <span className="font-semibold">⚠️ Allerta Meteo: 0461 495111</span>
+              <span className="ml-4 text-sm">(Protezione Civile Trentino)</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Rest of the sections continue here... */}
+        {/* Footer */}
+        <footer className="py-12 px-4 bg-gray-900 text-white text-center">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center justify-center mb-6">
+              <Mountain className="w-8 h-8 mr-2" />
+              <Heart className="w-6 h-6 text-red-400 mx-2" />
+              <TreePine className="w-8 h-8 ml-2" />
+            </div>
+            <h3 className="text-2xl font-bold mb-4">Il mio viaggio nel cassetto</h3>
+            <p className="text-gray-300 mb-2">Trentino, Emozioni tra Montagne e Tradizioni</p>
+            <p className="text-gray-400">11 - 17 Giugno 2025 • Moena, Val di Fassa</p>
+            <div className="mt-8 pt-8 border-t border-gray-700">
+              <p className="text-sm text-gray-400">Creato con ❤️ da Ivan per Rita e Artù - Un viaggio indimenticabile</p>
+            </div>
+          </div>
+        </footer>
+      </div>
+    </>
+  )
+}
