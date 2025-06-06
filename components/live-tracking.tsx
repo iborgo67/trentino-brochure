@@ -414,14 +414,12 @@ export default function LiveTracking() {
       const avgLat = allPositions.reduce((sum, pos) => sum + pos.position.latitude, 0) / allPositions.length
       const avgLng = allPositions.reduce((sum, pos) => sum + pos.position.longitude, 0) / allPositions.length
 
-      // --- MODIFICA QUI ---
-      // 1. Leggi la chiave API dalle variabili d'ambiente
+     
       const apiKey = process.env.NEXT_PUBLIC_Maps_API_KEY;
 
-      // 2. Aggiungi il parametro &key= alla fine dell'URL
+    
       const mapUrl = `https://www.google.com/maps?q=${avgLat},${avgLng}&z=13&output=embed&key=${apiKey}`;
-      // --- FINE MODIFICA ---
-
+      
       return (
         <div className="w-full h-full relative">
           <iframe
@@ -439,7 +437,7 @@ export default function LiveTracking() {
     })()}
   </div>
 </CardContent>
-//...
+
                 </Card>
             )}
 
