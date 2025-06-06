@@ -40,13 +40,13 @@ interface SharedPosition {
 
 // --- CONSTANTS ---
 const tourStops: TourStop[] = [
-  { name: "Moena Centro", lat: 46.3769, lng: 11.6769, radius: 300, day: 1, emoji: "🏘️" },
-  { name: "Passo San Pellegrino", lat: 46.3833, lng: 11.7833, radius: 500, day: 2, emoji: "🏔️" },
-  { name: "Val San Nicolò", lat: 46.3667, lng: 11.7167, radius: 400, day: 3, emoji: "🌸" },
-  { name: "Canazei", lat: 46.4769, lng: 11.7769, radius: 300, day: 4, emoji: "🚡" },
-  { name: "Sass Pordoi", lat: 46.4833, lng: 11.8167, radius: 200, day: 4, emoji: "⛰️" },
-  { name: "Lago di Carezza", lat: 46.4094, lng: 11.5794, radius: 200, day: 5, emoji: "🏞️" },
-  { name: "Cavalese", lat: 46.2897, lng: 11.4597, radius: 400, day: 6, emoji: "🌲" },
+  { name: "Moena Centro", lat: 46.3769, lng: 11.6769, radius: 300, day: 1, emoji: "???" },
+  { name: "Passo San Pellegrino", lat: 46.3833, lng: 11.7833, radius: 500, day: 2, emoji: "???" },
+  { name: "Val San Nicolò", lat: 46.3667, lng: 11.7167, radius: 400, day: 3, emoji: "??" },
+  { name: "Canazei", lat: 46.4769, lng: 11.7769, radius: 300, day: 4, emoji: "??" },
+  { name: "Sass Pordoi", lat: 46.4833, lng: 11.8167, radius: 200, day: 4, emoji: "??" },
+  { name: "Lago di Carezza", lat: 46.4094, lng: 11.5794, radius: 200, day: 5, emoji: "???" },
+  { name: "Cavalese", lat: 46.2897, lng: 11.4597, radius: 400, day: 6, emoji: "??" },
 ]
 
 const SHARED_POSITIONS_KEY = "trentino-all-positions"
@@ -93,11 +93,11 @@ export default function LiveTracking() {
   
   const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
     const R = 6371e3
-    const φ1 = (lat1 * Math.PI) / 180
-    const φ2 = (lat2 * Math.PI) / 180
-    const Δφ = ((lat2 - lat1) * Math.PI) / 180
-    const Δλ = ((lng2 - lng1) * Math.PI) / 180
-    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2)
+    const f1 = (lat1 * Math.PI) / 180
+    const f2 = (lat2 * Math.PI) / 180
+    const ?f = ((lat2 - lat1) * Math.PI) / 180
+    const ?? = ((lng2 - lng1) * Math.PI) / 180
+    const a = Math.sin(?f / 2) * Math.sin(?f / 2) + Math.cos(f1) * Math.cos(f2) * Math.sin(?? / 2) * Math.sin(?? / 2)
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
     return R * c
   }
@@ -139,7 +139,7 @@ export default function LiveTracking() {
               deviceInfo: {
                 id: data.deviceId, owner: data.owner, name: `Telefono di ${data.owner}`,
                 color: data.owner === "Ivan" ? "blue" : "pink",
-                emoji: data.owner === "Ivan" ? "👨‍💻" : "👩‍💼",
+                emoji: data.owner === "Ivan" ? "?????" : "?????",
                 isGuest: data.isGuest || false,
               },
               position: {
@@ -194,7 +194,7 @@ export default function LiveTracking() {
       name: isGuest ? customName || "Ospite" : owner === "Ivan" ? "iPhone di Ivan" : "Telefono di Rita",
       owner: isGuest ? customName || "Ospite" : owner,
       color: owner === "Ivan" ? "blue" : owner === "Rita" ? "pink" : "gray",
-      emoji: owner === "Ivan" ? "👨‍💻" : owner === "Rita" ? "👩‍💼" : "👤",
+      emoji: owner === "Ivan" ? "?????" : owner === "Rita" ? "?????" : "??",
       isGuest: isGuest,
     }
     setDeviceInfo(device)
@@ -265,7 +265,7 @@ export default function LiveTracking() {
         if (!visitedStops.includes(stop.name)) {
           setVisitedStops(prev => [...prev, stop.name]);
           if ("Notification" in window && Notification.permission === "granted") {
-            new Notification(`🎉 Sei arrivato a ${stop.name}!`);
+            new Notification(`?? Sei arrivato a ${stop.name}!`);
           }
         }
         return;
@@ -295,7 +295,7 @@ export default function LiveTracking() {
   const sharePosition = () => {
     if (!position || !deviceInfo) return
     const googleMapsUrl = `https://www.google.com/maps?q=${position.latitude},${position.longitude}`
-    const message = `🗺️ ${deviceInfo.emoji} ${deviceInfo.owner} è qui in Trentino!\n\n📍 Google Maps:\n${googleMapsUrl}\n\n🔗 Brochure Live:\n${getBaseUrl()}`
+    const message = `??? ${deviceInfo.emoji} ${deviceInfo.owner} è qui in Trentino!\n\n?? Google Maps:\n${googleMapsUrl}\n\n?? Brochure Live:\n${getBaseUrl()}`
     if (navigator.share) {
       navigator.share({ title: `Posizione di ${deviceInfo.owner}`, text: message })
     } else {
@@ -346,12 +346,12 @@ export default function LiveTracking() {
       {!isDeviceSetup ? (
         <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200">
            {/* ... Contenuto della Card di Setup ... (identico al tuo codice originale) */}
-            <CardHeader><CardTitle>📱 Chi Sta Usando Questo Dispositivo?</CardTitle></CardHeader>
+            <CardHeader><CardTitle>?? Chi Sta Usando Questo Dispositivo?</CardTitle></CardHeader>
             <CardContent>
                 <div className="grid md:grid-cols-3 gap-4">
-                    <button onClick={() => setupDevice("Ivan")} className="p-6 bg-blue-50 hover:bg-blue-100 border-2 border-blue-200 rounded-lg"><div className="text-center"><div className="text-4xl mb-2">👨‍💻</div><h3 className="font-bold text-blue-800">Ivan</h3></div></button>
-                    <button onClick={() => setupDevice("Rita")} className="p-6 bg-pink-50 hover:bg-pink-100 border-2 border-pink-200 rounded-lg"><div className="text-center"><div className="text-4xl mb-2">👩‍💼</div><h3 className="font-bold text-pink-800">Rita</h3></div></button>
-                    <button onClick={setupGuest} className="p-6 bg-gray-50 hover:bg-gray-100 border-2 border-gray-200 rounded-lg"><div className="text-center"><div className="text-4xl mb-2">👤</div><h3 className="font-bold text-gray-800">Ospite</h3></div></button>
+                    <button onClick={() => setupDevice("Ivan")} className="p-6 bg-blue-50 hover:bg-blue-100 border-2 border-blue-200 rounded-lg"><div className="text-center"><div className="text-4xl mb-2">?????</div><h3 className="font-bold text-blue-800">Ivan</h3></div></button>
+                    <button onClick={() => setupDevice("Rita")} className="p-6 bg-pink-50 hover:bg-pink-100 border-2 border-pink-200 rounded-lg"><div className="text-center"><div className="text-4xl mb-2">?????</div><h3 className="font-bold text-pink-800">Rita</h3></div></button>
+                    <button onClick={setupGuest} className="p-6 bg-gray-50 hover:bg-gray-100 border-2 border-gray-200 rounded-lg"><div className="text-center"><div className="text-4xl mb-2">??</div><h3 className="font-bold text-gray-800">Ospite</h3></div></button>
                 </div>
             </CardContent>
         </Card>
@@ -398,19 +398,48 @@ export default function LiveTracking() {
             {/* Mappa Integrata */}
             {allPositions.length > 0 && (
                 <Card>
-                    <CardHeader><CardTitle>🗺️ Mappa Live di Tutti i partecipanti</CardTitle></CardHeader>
-                    <CardContent className="p-0">
-                        <div className="w-full h-[400px] relative">
-                            <iframe
-                                src={`https://www.google.com/maps/embed/v1/view?key=YOUR_Maps_API_KEY&center=${allPositions[0].position.latitude},${allPositions[0].position.longitude}&zoom=13`} // Nota: Per i marker avresti bisogno di un'implementazione più complessa
-                                width="100%"
-                                height="100%"
-                                className="border-0"
-                                loading="lazy"
-                                allowFullScreen
-                            ></iframe>
-                        </div>
-                    </CardContent>
+                    <CardHeader><CardTitle>??? Mappa Live di Tutti i partecipanti</CardTitle></CardHeader>
+                   // Dentro il return, dove hai la Card della "Mappa Integrata"
+
+// ...
+<CardContent className="p-0">
+  <div className="w-full h-[400px] md:h-[500px] relative">
+    {(() => {
+      if (allPositions.length === 0) {
+        return (
+          // ... il tuo codice per quando non ci sono posizioni
+        )
+      }
+
+      const avgLat = allPositions.reduce((sum, pos) => sum + pos.position.latitude, 0) / allPositions.length
+      const avgLng = allPositions.reduce((sum, pos) => sum + pos.position.longitude, 0) / allPositions.length
+
+      // --- MODIFICA QUI ---
+      // 1. Leggi la chiave API dalle variabili d'ambiente
+      const apiKey = process.env.NEXT_PUBLIC_Maps_API_KEY;
+
+      // 2. Aggiungi il parametro &key= alla fine dell'URL
+      const mapUrl = `https://www.google.com/maps?q=${avgLat},${avgLng}&z=13&output=embed&key=${apiKey}`;
+      // --- FINE MODIFICA ---
+
+      return (
+        <div className="w-full h-full relative">
+          <iframe
+            src={mapUrl}  // L'URL ora contiene la chiave
+            width="100%"
+            height="100%"
+            className="rounded-b-lg border-0"
+            loading="lazy"
+            allowFullScreen
+            referrerPolicy="no-referrer-when-downgrade"
+          ></iframe>
+          {/* ... resto del codice per l'overlay */}
+        </div>
+      )
+    })()}
+  </div>
+</CardContent>
+//...
                 </Card>
             )}
 
