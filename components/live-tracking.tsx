@@ -51,7 +51,187 @@ const tourStops: TourStop[] = [
 
 const SHARED_POSITIONS_KEY = "trentino-all-positions"
 
-// --- COMPONENT ---
+// --- GOOGLE MAPS COMPONENT ---
+interface GoogleMapProps {
+  positions: SharedPosition[]
+  tourStops: TourStop[]
+}
+
+const GoogleMap: React.FC<GoogleMapProps> = ({ positions, tourStops }) => {
+  const [mapLoaded, setMapLoaded] = useState(false)
+  const [mapError, setMapError] = useState<string>("")
+
+  useEffect(() => {
+    // Carica Google Maps API
+    if (!window.google) {
+      const script = document.createElement('script')
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_MAPS_API_KEY}&libraries=geometry`
+      script.async = true
+      script.defer = true
+      script.onload = () => {
+        setMapLoaded(true)
+      }
+      script.onerror = () => {
+        setMapError("Errore nel caricamento di Google Maps")
+      }
+      document.head.appendChild(script)
+    } else {
+      setMapLoaded(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (mapLoaded && positions.length > 0) {
+      initializeMap()
+    }
+  }, [mapLoaded, positions])
+
+  const initializeMap = () => {
+    try {
+      // Calcola il centro della mappa
+      const bounds = new window.google.maps.LatLngBounds()
+      
+      // Aggiungi le posizioni dei partecipanti
+      positions.forEach(pos => {
+        bounds.extend(new window.google.maps.LatLng(pos.position.latitude, pos.position.longitude))
+      })
+
+      // Aggiungi le tappe del tour
+      tourStops.forEach(stop => {
+        bounds.extend(new window.google.maps.LatLng(stop.lat, stop.lng))
+      })
+
+      const mapOptions = {
+        zoom: 10,
+        center: bounds.getCenter(),
+        mapTypeId: window.google.maps.MapTypeId.ROADMAP,
+        mapTypeControl: true,
+        streetViewControl: false,
+        fullscreenControl: true,
+      }
+
+      const map = new window.google.maps.Map(document.getElementById('google-map'), mapOptions)
+      
+      // Adatta la mappa ai bounds
+      map.fitBounds(bounds)
+
+      // Aggiungi marker per le posizioni dei partecipanti
+      positions.forEach(pos => {
+        const marker = new window.google.maps.Marker({
+          position: { lat: pos.position.latitude, lng: pos.position.longitude },
+          map: map,
+          title: `${pos.deviceInfo.owner} - ${new Date(pos.lastUpdate).toLocaleTimeString()}`,
+          icon: {
+            url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+              <svg width="40" height="40" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="20" cy="20" r="18" fill="${pos.deviceInfo.color === 'blue' ? '#3b82f6' : pos.deviceInfo.color === 'pink' ? '#ec4899' : '#6b7280'}" stroke="white" stroke-width="3"/>
+                <text x="20" y="28" text-anchor="middle" font-size="16" fill="white">${pos.deviceInfo.emoji}</text>
+              </svg>
+            `)}`,
+            scaledSize: new window.google.maps.Size(40, 40),
+            anchor: new window.google.maps.Point(20, 20)
+          }
+        })
+
+        // Info window per ogni marker
+        const infoWindow = new window.google.maps.InfoWindow({
+          content: `
+            <div style="padding: 8px;">
+              <h4 style="margin: 0 0 8px 0; color: #333;">${pos.deviceInfo.emoji} ${pos.deviceInfo.owner}</h4>
+              <p style="margin: 0; font-size: 12px; color: #666;">
+                Ultimo aggiornamento: ${new Date(pos.lastUpdate).toLocaleString()}<br>
+                Precisione: ${Math.round(pos.position.accuracy)}m
+              </p>
+            </div>
+          `
+        })
+
+        marker.addListener('click', () => {
+          infoWindow.open(map, marker)
+        })
+      })
+
+      // Aggiungi marker per le tappe del tour
+      tourStops.forEach((stop, index) => {
+        const marker = new window.google.maps.Marker({
+          position: { lat: stop.lat, lng: stop.lng },
+          map: map,
+          title: `${stop.name} - Giorno ${stop.day}`,
+          icon: {
+            url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+              <svg width="30" height="30" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="15" cy="15" r="13" fill="#10b981" stroke="white" stroke-width="2"/>
+                <text x="15" y="20" text-anchor="middle" font-size="12" fill="white">${stop.emoji}</text>
+              </svg>
+            `)}`,
+            scaledSize: new window.google.maps.Size(30, 30),
+            anchor: new window.google.maps.Point(15, 15)
+          }
+        })
+
+        // Cerchio per il raggio della tappa
+        const circle = new window.google.maps.Circle({
+          strokeColor: '#10b981',
+          strokeOpacity: 0.8,
+          strokeWeight: 2,
+          fillColor: '#10b981',
+          fillOpacity: 0.1,
+          map: map,
+          center: { lat: stop.lat, lng: stop.lng },
+          radius: stop.radius
+        })
+
+        // Info window per le tappe
+        const infoWindow = new window.google.maps.InfoWindow({
+          content: `
+            <div style="padding: 8px;">
+              <h4 style="margin: 0 0 8px 0; color: #333;">${stop.emoji} ${stop.name}</h4>
+              <p style="margin: 0; font-size: 12px; color: #666;">
+                Giorno ${stop.day}<br>
+                Raggio: ${stop.radius}m
+              </p>
+            </div>
+          `
+        })
+
+        marker.addListener('click', () => {
+          infoWindow.open(map, marker)
+        })
+      })
+
+    } catch (error) {
+      console.error('Errore nell\'inizializzazione della mappa:', error)
+      setMapError("Errore nell'inizializzazione della mappa")
+    }
+  }
+
+  if (mapError) {
+    return (
+      <div className="w-full h-[400px] flex items-center justify-center bg-gray-100 text-gray-600">
+        <div className="text-center">
+          <MapPin className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+          <p>{mapError}</p>
+          <p className="text-sm mt-2">Verifica che la tua API key sia valida e abbia le autorizzazioni necessarie</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!mapLoaded) {
+    return (
+      <div className="w-full h-[400px] flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <RefreshCw className="w-8 h-8 mx-auto animate-spin text-gray-400 mb-4" />
+          <p className="text-gray-600">Caricamento mappa...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return <div id="google-map" className="w-full h-[400px]" />
+}
+
+// --- COMPONENT PRINCIPALE ---
 export default function LiveTracking() {
   // State Hooks
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null)
@@ -73,15 +253,12 @@ export default function LiveTracking() {
   const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
-    // Questo si attiva solo una volta nel browser, dopo il render iniziale.
-    // Impostando isClient a true, si scatena un secondo render che può usare le API del browser.
     setIsClient(true)
   }, [])
   
   // --- HELPER FUNCTIONS ---
   
   const getBaseUrl = (): string => {
-    // Questa funzione ora verrà chiamata solo quando isClient è true
     return window.location.origin + window.location.pathname
   }
 
@@ -102,10 +279,9 @@ export default function LiveTracking() {
     return R * c
   }
 
-  // --- CORE LOGIC (eseguita solo sul client) ---
+  // --- CORE LOGIC ---
   
   useEffect(() => {
-    // Tutto il codice che dipende dal browser viene eseguito solo quando isClient è true
     if (isClient) {
       const loadAllSharedPositions = () => {
         const savedPositions = localStorage.getItem(SHARED_POSITIONS_KEY)
@@ -154,7 +330,6 @@ export default function LiveTracking() {
         }
       }
 
-      // --- SETUP INIZIALE ---
       const baseUrl = getBaseUrl()
       setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(baseUrl)}`)
 
@@ -169,8 +344,6 @@ export default function LiveTracking() {
 
       const syncPositions = () => {
         loadAllSharedPositions()
-        // Ricondivide la posizione se il tracking è attivo (per mantenere lo stato online)
-        // La logica per questa parte è già gestita da watchPosition
       }
 
       const interval = setInterval(syncPositions, 30000)
@@ -181,10 +354,6 @@ export default function LiveTracking() {
       }
     }
   }, [isClient])
-  
-  // Le altre funzioni che dipendono da `deviceInfo` o altre variabili di stato
-  // non hanno bisogno di essere dentro lo useEffect perché vengono chiamate da eventi utente
-  // che avvengono per forza sul client.
 
   const setupDevice = (owner: "Ivan" | "Rita" | "Guest", customName?: string) => {
     const deviceId = generateDeviceId()
@@ -234,7 +403,6 @@ export default function LiveTracking() {
           const sharedPos: SharedPosition = {
             deviceInfo, position: newPosition, lastUpdate: new Date(), isOnline: true
           }
-          // Aggiorna la posizione nel "database" locale
           setSharedPositions(prev => {
             const others = prev.filter(p => p.deviceInfo.id !== deviceInfo.id)
             const updated = [...others, sharedPos];
@@ -253,7 +421,6 @@ export default function LiveTracking() {
   const stopTracking = () => {
     setIsTracking(false);
     setIsSharing(false);
-    // Logica di pulizia già gestita dal `useEffect` di cleanup
   };
 
   const checkNearbyStops = (pos: Position) => {
@@ -309,7 +476,6 @@ export default function LiveTracking() {
     setupDevice("Guest", guestName || undefined)
   }
 
-  // Effetto di cleanup per rimuovere la posizione quando si smonta o si smette di condividere
   useEffect(() => {
     return () => {
       if (isSharing && deviceInfo) {
@@ -325,8 +491,6 @@ export default function LiveTracking() {
   
   // --- RENDERING ---
 
-  // 1. Mostra un loader se non siamo ancora sicuri di essere sul client.
-  // Questo render è identico a quello del server e risolve l'errore di idratazione.
   if (!isClient) {
     return (
       <Card>
@@ -338,14 +502,12 @@ export default function LiveTracking() {
     )
   }
 
-  // 2. Se siamo sul client, mostra l'interfaccia completa.
   const allPositions = sharedPositions.filter(p => p.isOnline);
 
   return (
     <div className="space-y-6">
       {!isDeviceSetup ? (
         <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200">
-           {/* ... Contenuto della Card di Setup ... (identico al tuo codice originale) */}
             <CardHeader><CardTitle>📱 Chi Sta Usando Questo Dispositivo?</CardTitle></CardHeader>
             <CardContent>
                 <div className="grid md:grid-cols-3 gap-4">
@@ -391,30 +553,79 @@ export default function LiveTracking() {
                         </div>
                     )}
                     {error && <div className="text-red-600">{error}</div>}
-                    {/* ... Resto dell'interfaccia (Posizioni condivise, Mappa, Progresso, ecc.) come nel tuo codice originale ... */}
+                    
+                    {/* Posizioni Condivise */}
+                    {allPositions.length > 0 && (
+                        <div className="mt-4">
+                            <h4 className="font-bold mb-2">👥 Posizioni Live ({allPositions.length})</h4>
+                            <div className="space-y-2">
+                                {allPositions.map((pos, index) => (
+                                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-2xl">{pos.deviceInfo.emoji}</span>
+                                            <div>
+                                                <p className="font-semibold">{pos.deviceInfo.owner}</p>
+                                                <p className="text-sm text-gray-600">
+                                                    {new Date(pos.lastUpdate).toLocaleTimeString()} - Precisione: {Math.round(pos.position.accuracy)}m
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <Badge className={`${pos.deviceInfo.color === 'blue' ? 'bg-blue-600' : pos.deviceInfo.color === 'pink' ? 'bg-pink-600' : 'bg-gray-600'}`}>
+                                            Online
+                                        </Badge>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 
             {/* Mappa Integrata */}
             {allPositions.length > 0 && (
                 <Card>
-                    <CardHeader><CardTitle>🗺️ Mappa Live di Tutti i partecipanti</CardTitle></CardHeader>
+                    <CardHeader><CardTitle>🗺️ Mappa Live di Tutti i Partecipanti</CardTitle></CardHeader>
                     <CardContent className="p-0">
-                        <div className="w-full h-[400px] relative">
-                            <iframe
-                                src={`https://www.google.com/maps/embed/v1/view?key=YOUR_Maps_API_KEY&center=${allPositions[0].position.latitude},${allPositions[0].position.longitude}&zoom=13`} // Nota: Per i marker avresti bisogno di un'implementazione più complessa
-                                width="100%"
-                                height="100%"
-                                className="border-0"
-                                loading="lazy"
-                                allowFullScreen
-                            ></iframe>
+                        <GoogleMap positions={allPositions} tourStops={tourStops} />
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Tappa Attuale */}
+            {currentStop && (
+                <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200">
+                    <CardHeader><CardTitle>📍 Sei Arrivato!</CardTitle></CardHeader>
+                    <CardContent>
+                        <div className="text-center">
+                            <div className="text-6xl mb-4">{currentStop.emoji}</div>
+                            <h3 className="text-xl font-bold text-green-800 mb-2">{currentStop.name}</h3>
+                            <p className="text-green-700">Giorno {currentStop.day} del tour</p>
                         </div>
                     </CardContent>
                 </Card>
             )}
 
-            {/* ... Aggiungi qui le altre card che avevi, come la lista delle posizioni, la tappa attuale, etc. ... */}
+            {/* Progresso Tour */}
+            {visitedStops.length > 0 && (
+                <Card>
+                    <CardHeader><CardTitle>🎯 Progresso Tour</CardTitle></CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {tourStops.map((stop, index) => (
+                                <div key={index} className={`p-3 rounded-lg text-center ${visitedStops.includes(stop.name) ? 'bg-green-100 border-2 border-green-300' : 'bg-gray-100'}`}>
+                                    <div className="text-2xl mb-1">{stop.emoji}</div>
+                                    <p className="text-sm font-semibold">{stop.name}</p>
+                                    <p className="text-xs text-gray-600">Giorno {stop.day}</p>
+                                    {visitedStops.includes(stop.name) && <div className="text-green-600 text-xs mt-1">✅ Visitato</div>}
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-4 text-center">
+                            <Badge className="bg-green-600">{visitedStops.length}/{tourStops.length} Tappe Completate</Badge>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
         </>
       )}
     </div>
