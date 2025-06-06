@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import LiveTracking from "@/components/live-tracking"
 
-export default function Home() {
+export  function Home() {
   return (
     <div>
       <h1 className="text-3xl font-bold text-center mb-6">
@@ -20,7 +20,7 @@ export default function Home() {
 const VERSION = "v2.3.0 - Auto-Sync & QR Code Fisso"
 const LAST_UPDATE = "7 Gennaio 2025, 10:30"
 
-export  function TrentinoBrochure() {
+export default function TrentinoBrochure() {
   const days = [
     {
       date: "Mercoledì 11 Giugno",
