@@ -229,7 +229,7 @@ export default function LiveTracking() {
     if (!position || !deviceInfo) return
     // CORREZIONE: Usa i template literal `` per inserire le variabili
     const googleMapsUrl = `https://www.google.com/maps?q=${position.latitude},${position.longitude}`
-    const message = `🗺️ ${deviceInfo.emoji} ${deviceInfo.owner} è qui in Trentino!\n\n📍 Google Maps:\n${googleMapsUrl}\n\n🔗 Brochure Live:\n${getBaseUrl()}`
+    const message = `??? ${deviceInfo.emoji} <span class="math-inline">\{deviceInfo\.owner\} è qui in Trentino\!\\n\\n?? Posizione su Google Maps\:\\n</span>{googleMapsUrl}\n\n?? Brochure Live:\n${getBaseUrl()}`;
     
     if (navigator.share) {
       navigator.share({ title: `Posizione di ${deviceInfo.owner}`, text: message })
