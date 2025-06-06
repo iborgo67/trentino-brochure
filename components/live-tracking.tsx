@@ -583,13 +583,24 @@ export default function LiveTracking() {
 
             {/* Mappa Integrata */}
             {allPositions.length > 0 && (
-                <Card>
-                    <CardHeader><CardTitle>🗺️ Mappa Live di Tutti i Partecipanti</CardTitle></CardHeader>
-                    <CardContent className="p-0">
-                        <GoogleMap positions={allPositions} tourStops={tourStops} />
-                    </CardContent>
-                </Card>
-            )}
+  <Card>
+    <CardHeader>
+      <CardTitle>🗺️ Mappa Live di Tutti i partecipanti</CardTitle>
+    </CardHeader>
+    <CardContent className="p-0">
+      <div className="w-full h-[400px] relative">
+        <iframe
+          src={`https://www.google.com/maps/embed/v1/view?key=${process.env.NEXT_PUBLIC_MAPS_API_KEY}&center=${allPositions[0].position.latitude},${allPositions[0].position.longitude}&zoom=13`}
+          width="100%"
+          height="100%"
+          className="border-0"
+          loading="lazy"
+          allowFullScreen
+        ></iframe>
+      </div>
+    </CardContent>
+  </Card>
+)}
 
             {/* Tappa Attuale */}
             {currentStop && (

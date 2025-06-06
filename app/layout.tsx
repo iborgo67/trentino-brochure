@@ -7,6 +7,7 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'Live Tracking Trentino',
   description: 'Tracker GPS per il tour del Trentino',
+    generator: 'v0.dev'
 }
 
 export default function RootLayout({
