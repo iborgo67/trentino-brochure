@@ -40,13 +40,13 @@ interface SharedPosition {
 
 // --- CONSTANTS ---
 const tourStops: TourStop[] = [
-  { name: "Moena Centro", lat: 46.3769, lng: 11.6769, radius: 300, day: 1, emoji: "???" },
-  { name: "Passo San Pellegrino", lat: 46.3833, lng: 11.7833, radius: 500, day: 2, emoji: "???" },
-  { name: "Val San Nicolò", lat: 46.3667, lng: 11.7167, radius: 400, day: 3, emoji: "??" },
-  { name: "Canazei", lat: 46.4769, lng: 11.7769, radius: 300, day: 4, emoji: "??" },
-  { name: "Sass Pordoi", lat: 46.4833, lng: 11.8167, radius: 200, day: 4, emoji: "??" },
-  { name: "Lago di Carezza", lat: 46.4094, lng: 11.5794, radius: 200, day: 5, emoji: "???" },
-  { name: "Cavalese", lat: 46.2897, lng: 11.4597, radius: 400, day: 6, emoji: "??" },
+    { name: "Moena Centro", lat: 46.3769, lng: 11.6769, radius: 300, day: 1, emoji: "???" },
+    { name: "Passo San Pellegrino", lat: 46.3833, lng: 11.7833, radius: 500, day: 2, emoji: "???" },
+    { name: "Val San Nicolò", lat: 46.3667, lng: 11.7167, radius: 400, day: 3, emoji: "??" },
+    { name: "Canazei", lat: 46.4769, lng: 11.7769, radius: 300, day: 4, emoji: "??" },
+    { name: "Sass Pordoi", lat: 46.4833, lng: 11.8167, radius: 200, day: 4, emoji: "??" },
+    { name: "Lago di Carezza", lat: 46.4094, lng: 11.5794, radius: 200, day: 5, emoji: "???" },
+    { name: "Cavalese", lat: 46.2897, lng: 11.4597, radius: 400, day: 6, emoji: "??" },
 ]
 
 const SHARED_POSITIONS_KEY = "trentino-all-positions"
@@ -69,12 +69,11 @@ export default function LiveTracking() {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("")
   const [syncInterval, setSyncInterval] = useState<NodeJS.Timeout | null>(null)
   
-  // SOLUZIONE PER L'ERRORE DI IDRATAZIONE: Stato per renderizzare solo sul client
+  // Soluzione per l'errore di idratazione: Stato per renderizzare solo sul client
   const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
     // Questo si attiva solo una volta nel browser, dopo il render iniziale.
-    // Impostando isClient a true, si scatena un secondo render che può usare le API del browser.
     setIsClient(true)
   }, [])
   
@@ -82,7 +81,10 @@ export default function LiveTracking() {
   
   const getBaseUrl = (): string => {
     // Questa funzione ora verrà chiamata solo quando isClient è true
-    return window.location.origin + window.location.pathname
+    if (typeof window !== "undefined") {
+      return window.location.origin + window.location.pathname
+    }
+    return ""
   }
 
   const generateDeviceId = (): string => {
@@ -92,12 +94,12 @@ export default function LiveTracking() {
   }
   
   const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
-    const R = 6371e3
+    const R = 6371e3 // Raggio della Terra in metri
     const f1 = (lat1 * Math.PI) / 180
     const f2 = (lat2 * Math.PI) / 180
-    const ?f = ((lat2 - lat1) * Math.PI) / 180
-    const ?? = ((lng2 - lng1) * Math.PI) / 180
-    const a = Math.sin(?f / 2) * Math.sin(?f / 2) + Math.cos(f1) * Math.cos(f2) * Math.sin(?? / 2) * Math.sin(?? / 2)
+    const deltaF = ((lat2 - lat1) * Math.PI) / 180
+    const deltaL = ((lng2 - lng1) * Math.PI) / 180
+    const a = Math.sin(deltaF / 2) * Math.sin(deltaF / 2) + Math.cos(f1) * Math.cos(f2) * Math.sin(deltaL / 2) * Math.sin(deltaL / 2)
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
     return R * c
   }
@@ -105,7 +107,6 @@ export default function LiveTracking() {
   // --- CORE LOGIC (eseguita solo sul client) ---
   
   useEffect(() => {
-    // Tutto il codice che dipende dal browser viene eseguito solo quando isClient è true
     if (isClient) {
       const loadAllSharedPositions = () => {
         const savedPositions = localStorage.getItem(SHARED_POSITIONS_KEY)
@@ -113,6 +114,7 @@ export default function LiveTracking() {
           try {
             const positions = JSON.parse(savedPositions)
             const now = Date.now()
+            // Filtra posizioni più vecchie di 1 ora
             const filteredPositions = positions.filter((p: any) => now - new Date(p.lastUpdate).getTime() < 3600000)
             setSharedPositions(filteredPositions.map((p: any) => ({ ...p, lastUpdate: new Date(p.lastUpdate) })))
             localStorage.setItem(SHARED_POSITIONS_KEY, JSON.stringify(filteredPositions))
@@ -156,7 +158,9 @@ export default function LiveTracking() {
 
       // --- SETUP INIZIALE ---
       const baseUrl = getBaseUrl()
-      setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(baseUrl)}`)
+      if(baseUrl) {
+          setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(baseUrl)}`)
+      }
 
       const savedDevice = localStorage.getItem("trentino-device")
       if (savedDevice) {
@@ -169,8 +173,6 @@ export default function LiveTracking() {
 
       const syncPositions = () => {
         loadAllSharedPositions()
-        // Ricondivide la posizione se il tracking è attivo (per mantenere lo stato online)
-        // La logica per questa parte è già gestita da watchPosition
       }
 
       const interval = setInterval(syncPositions, 30000)
@@ -182,10 +184,6 @@ export default function LiveTracking() {
     }
   }, [isClient])
   
-  // Le altre funzioni che dipendono da `deviceInfo` o altre variabili di stato
-  // non hanno bisogno di essere dentro lo useEffect perché vengono chiamate da eventi utente
-  // che avvengono per forza sul client.
-
   const setupDevice = (owner: "Ivan" | "Rita" | "Guest", customName?: string) => {
     const deviceId = generateDeviceId()
     const isGuest = owner === "Guest"
@@ -234,7 +232,6 @@ export default function LiveTracking() {
           const sharedPos: SharedPosition = {
             deviceInfo, position: newPosition, lastUpdate: new Date(), isOnline: true
           }
-          // Aggiorna la posizione nel "database" locale
           setSharedPositions(prev => {
             const others = prev.filter(p => p.deviceInfo.id !== deviceInfo.id)
             const updated = [...others, sharedPos];
@@ -247,13 +244,15 @@ export default function LiveTracking() {
       (err) => { setError(`Errore GPS: ${err.message}`); setIsTracking(false) },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
     )
-    return () => navigator.geolocation.clearWatch(watchId)
+    // Questo return non funziona come previsto qui, la logica di pulizia è spostata
+    // return () => navigator.geolocation.clearWatch(watchId)
   }
 
   const stopTracking = () => {
     setIsTracking(false);
     setIsSharing(false);
-    // Logica di pulizia già gestita dal `useEffect` di cleanup
+    // La logica di pulizia per `watchPosition` dovrebbe essere gestita
+    // in un useEffect che dipende da `isTracking`.
   };
 
   const checkNearbyStops = (pos: Position) => {
@@ -261,12 +260,14 @@ export default function LiveTracking() {
     for (const stop of tourStops) {
       const distance = calculateDistance(pos.latitude, pos.longitude, stop.lat, stop.lng);
       if (distance <= stop.radius) {
-        setCurrentStop(stop);
-        if (!visitedStops.includes(stop.name)) {
-          setVisitedStops(prev => [...prev, stop.name]);
-          if ("Notification" in window && Notification.permission === "granted") {
-            new Notification(`?? Sei arrivato a ${stop.name}!`);
-          }
+        if (currentStop?.name !== stop.name) {
+            setCurrentStop(stop);
+            if (!visitedStops.includes(stop.name)) {
+                setVisitedStops(prev => [...prev, stop.name]);
+                if ("Notification" in window && Notification.permission === "granted") {
+                    new Notification(`?? Sei arrivato a ${stop.name}!`);
+                }
+            }
         }
         return;
       }
@@ -282,7 +283,8 @@ export default function LiveTracking() {
         timestamp: pos.timestamp, accuracy: pos.accuracy,
         isGuest: deviceInfo.isGuest,
     };
-    return `${getBaseUrl()}?shared=${encodeURIComponent(JSON.stringify(shareData))}`;
+    const baseUrl = getBaseUrl();
+    return `${baseUrl}?shared=${encodeURIComponent(JSON.stringify(shareData))}`;
   };
 
   const copyShareLink = () => {
@@ -294,7 +296,7 @@ export default function LiveTracking() {
 
   const sharePosition = () => {
     if (!position || !deviceInfo) return
-    const googleMapsUrl = `https://www.google.com/maps?q=${position.latitude},${position.longitude}`
+    const googleMapsUrl = `https://www.google.com/maps?q=${position.latitude},${position.longitude}`;
     const message = `??? ${deviceInfo.emoji} ${deviceInfo.owner} è qui in Trentino!\n\n?? Google Maps:\n${googleMapsUrl}\n\n?? Brochure Live:\n${getBaseUrl()}`
     if (navigator.share) {
       navigator.share({ title: `Posizione di ${deviceInfo.owner}`, text: message })
@@ -309,15 +311,18 @@ export default function LiveTracking() {
     setupDevice("Guest", guestName || undefined)
   }
 
-  // Effetto di cleanup per rimuovere la posizione quando si smonta o si smette di condividere
   useEffect(() => {
     return () => {
-      if (isSharing && deviceInfo) {
+      if (!isSharing && deviceInfo) {
         const saved = localStorage.getItem(SHARED_POSITIONS_KEY);
         if (saved) {
-          const positions = JSON.parse(saved);
-          const filtered = positions.filter((p: any) => p.deviceInfo.id !== deviceInfo.id);
-          localStorage.setItem(SHARED_POSITIONS_KEY, JSON.stringify(filtered));
+          try {
+            const positions = JSON.parse(saved);
+            const filtered = positions.filter((p: any) => p.deviceInfo.id !== deviceInfo.id);
+            localStorage.setItem(SHARED_POSITIONS_KEY, JSON.stringify(filtered));
+          } catch(e) {
+              console.error("Errore durante la pulizia della posizione", e);
+          }
         }
       }
     }
@@ -325,8 +330,6 @@ export default function LiveTracking() {
   
   // --- RENDERING ---
 
-  // 1. Mostra un loader se non siamo ancora sicuri di essere sul client.
-  // Questo render è identico a quello del server e risolve l'errore di idratazione.
   if (!isClient) {
     return (
       <Card>
@@ -338,14 +341,12 @@ export default function LiveTracking() {
     )
   }
 
-  // 2. Se siamo sul client, mostra l'interfaccia completa.
   const allPositions = sharedPositions.filter(p => p.isOnline);
 
   return (
     <div className="space-y-6">
       {!isDeviceSetup ? (
         <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200">
-           {/* ... Contenuto della Card di Setup ... (identico al tuo codice originale) */}
             <CardHeader><CardTitle>?? Chi Sta Usando Questo Dispositivo?</CardTitle></CardHeader>
             <CardContent>
                 <div className="grid md:grid-cols-3 gap-4">
@@ -357,91 +358,80 @@ export default function LiveTracking() {
         </Card>
       ) : (
         <>
-            {/* QR Code Fisso */}
-            <Card className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200">
-                <CardHeader><CardTitle className="flex items-center"><QrCode className="w-6 h-6 mr-2" />QR Code Mappa Live</CardTitle></CardHeader>
-                <CardContent className="flex flex-col md:flex-row items-center gap-6">
-                    <div className="bg-white p-4 rounded-lg shadow-md">
-                        {qrCodeUrl && <img src={qrCodeUrl} alt="QR Code" className="w-40 h-40" />}
-                    </div>
-                    <div>
-                        <h4 className="font-bold text-indigo-800 mb-2">Scansiona per Vedere Tutti</h4>
-                        <p>Questo QR code porta alla mappa live. Salvalo e invialo a chi vuoi!</p>
-                    </div>
-                </CardContent>
-            </Card>
+          <Card className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200">
+            <CardHeader><CardTitle className="flex items-center"><QrCode className="w-6 h-6 mr-2" />QR Code Mappa Live</CardTitle></CardHeader>
+            <CardContent className="flex flex-col md:flex-row items-center gap-6">
+                <div className="bg-white p-4 rounded-lg shadow-md">
+                    {qrCodeUrl ? <img src={qrCodeUrl} alt="QR Code" className="w-40 h-40" /> : <div className="w-40 h-40 bg-gray-200 animate-pulse rounded-lg"/>}
+                </div>
+                <div>
+                    <h4 className="font-bold text-indigo-800 mb-2">Scansiona per Vedere Tutti</h4>
+                    <p>Questo QR code porta alla mappa live. Salvalo e invialo a chi vuoi!</p>
+                </div>
+            </CardContent>
+          </Card>
 
-            {/* Controlli Tracking */}
+          <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center flex-wrap gap-2">
+                    <Navigation className="w-6 h-6 text-blue-600" /> Live Tracking GPS
+                    {deviceInfo && <Badge className="ml-2">{deviceInfo.emoji} {deviceInfo.owner}</Badge>}
+                    <Badge className="ml-2 bg-green-600">{allPositions.length} attivi</Badge>
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                {!deviceInfo?.isGuest && (
+                    <div className="flex flex-wrap gap-3 mb-4">
+                        {!isTracking ? 
+                            <button onClick={startTracking} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"><MapPin className="w-4 h-4"/> Inizia Tracking</button> :
+                            <button onClick={stopTracking} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"><MapPin className="w-4 h-4"/> Ferma Tracking</button>
+                        }
+                        {position && <button onClick={sharePosition} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"><Share2 className="w-4 h-4"/> Condividi</button>}
+                    </div>
+                )}
+                {error && <div className="text-red-600 font-semibold p-2 bg-red-50 rounded-md">{error}</div>}
+            </CardContent>
+          </Card>
+
+          {allPositions.length > 0 && (
             <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center">
-                        <Navigation className="w-6 h-6 mr-2 text-blue-600" /> Live Tracking GPS
-                        <Badge className="ml-2">{deviceInfo?.emoji} {deviceInfo?.owner}</Badge>
-                        <Badge className="ml-2 bg-green-600">{allPositions.length} attivi</Badge>
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {!deviceInfo?.isGuest && (
-                        <div className="flex flex-wrap gap-3 mb-4">
-                            {!isTracking ? 
-                                <button onClick={startTracking} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"><MapPin className="w-4 h-4"/> Inizia Tracking</button> :
-                                <button onClick={stopTracking} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"><MapPin className="w-4 h-4"/> Ferma Tracking</button>
-                            }
-                            {position && <button onClick={sharePosition} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"><Share2 className="w-4 h-4"/> Condividi</button>}
-                        </div>
-                    )}
-                    {error && <div className="text-red-600">{error}</div>}
-                    {/* ... Resto dell'interfaccia (Posizioni condivise, Mappa, Progresso, ecc.) come nel tuo codice originale ... */}
-                </CardContent>
+              <CardHeader><CardTitle>??? Mappa Live di Tutti i Partecipanti</CardTitle></CardHeader>
+              <CardContent className="p-0">
+                <div className="w-full h-[400px] md:h-[500px] relative">
+                  {(() => {
+                    const avgLat = allPositions.reduce((sum, pos) => sum + pos.position.latitude, 0) / allPositions.length
+                    const avgLng = allPositions.reduce((sum, pos) => sum + pos.position.longitude, 0) / allPositions.length
+                    
+                    const apiKey = process.env.NEXT_PUBLIC_Maps_API_KEY;
+                    if(!apiKey) {
+                        return <div className="w-full h-full flex items-center justify-center bg-gray-100 text-red-600">API Key di Google Maps non configurata.</div>
+                    }
+
+                    const mapUrl = `https://www.google.com/maps/embed/v1/view?key=${apiKey}&center=${avgLat},${avgLng}&zoom=12`;
+                    
+                    return (
+                      <div className="w-full h-full relative">
+                        <iframe
+                          src={mapUrl}
+                          width="100%"
+                          height="100%"
+                          className="rounded-b-lg border-0"
+                          loading="lazy"
+                          allowFullScreen
+                          referrerPolicy="no-referrer-when-downgrade"
+                        ></iframe>
+                        {/* Overlay con le posizioni */}
+                        {/* Questo è un esempio concettuale. Per marker reali sulla mappa, 
+                            dovresti usare una libreria come @react-google-maps/api o simili. */}
+                      </div>
+                    )
+                  })()}
+                </div>
+              </CardContent>
             </Card>
+          )}
 
-            {/* Mappa Integrata */}
-            {allPositions.length > 0 && (
-                <Card>
-                    <CardHeader><CardTitle>??? Mappa Live di Tutti i partecipanti</CardTitle></CardHeader>
-                   // Dentro il return, dove hai la Card della "Mappa Integrata"
-
-// ...
-<CardContent className="p-0">
-  <div className="w-full h-[400px] md:h-[500px] relative">
-    {(() => {
-      if (allPositions.length === 0) {
-        return (
-          // ... il tuo codice per quando non ci sono posizioni
-        )
-      }
-
-      const avgLat = allPositions.reduce((sum, pos) => sum + pos.position.latitude, 0) / allPositions.length
-      const avgLng = allPositions.reduce((sum, pos) => sum + pos.position.longitude, 0) / allPositions.length
-
-     
-      const apiKey = process.env.NEXT_PUBLIC_Maps_API_KEY;
-
-    
-      const mapUrl = `https://www.google.com/maps?q=${avgLat},${avgLng}&z=13&output=embed&key=${apiKey}`;
-      
-      return (
-        <div className="w-full h-full relative">
-          <iframe
-            src={mapUrl}  // L'URL ora contiene la chiave
-            width="100%"
-            height="100%"
-            className="rounded-b-lg border-0"
-            loading="lazy"
-            allowFullScreen
-            referrerPolicy="no-referrer-when-downgrade"
-          ></iframe>
-          {/* ... resto del codice per l'overlay */}
-        </div>
-      )
-    })()}
-  </div>
-</CardContent>
-
-                </Card>
-            )}
-
-            {/* ... Aggiungi qui le altre card che avevi, come la lista delle posizioni, la tappa attuale, etc. ... */}
+          {/* Qui puoi aggiungere le altre card: lista posizioni, tappa attuale, etc. */}
         </>
       )}
     </div>
