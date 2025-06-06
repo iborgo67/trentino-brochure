@@ -20,7 +20,7 @@ export default function Home() {
 const VERSION = "v2.3.0 - Auto-Sync & QR Code Fisso"
 const LAST_UPDATE = "7 Gennaio 2025, 10:30"
 
-export default function TrentinoBrochure() {
+export  function TrentinoBrochure() {
   const days = [
     {
       date: "Mercoledì 11 Giugno",
