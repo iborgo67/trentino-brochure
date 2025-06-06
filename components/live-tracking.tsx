@@ -398,7 +398,7 @@ export default function LiveTracking() {
             {/* Mappa Integrata */}
             {allPositions.length > 0 && (
                 <Card>
-                    <CardHeader><CardTitle>🗺️ Mappa Live di Tutti</CardTitle></CardHeader>
+                    <CardHeader><CardTitle>🗺️ Mappa Live di Tutti i partecipanti</CardTitle></CardHeader>
                     <CardContent className="p-0">
                         <div className="w-full h-[400px] relative">
                             <iframe
