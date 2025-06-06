@@ -594,7 +594,7 @@ export default function TrentinoBrochure() {
               <Heart className="w-6 h-6 text-red-400 mx-2" />
               <TreePine className="w-8 h-8 ml-2" />
             </div>
-            <h3 className="text-2xl font-bold mb-4">Il mio viaggio nel cassetto</h3>
+            <h3 className="text-2xl font-bold mb-4">Il mio viaggio </h3>
             <p className="text-gray-300 mb-2">Trentino, Emozioni tra Montagne e Tradizioni</p>
             <p className="text-gray-400">11 - 17 Giugno 2025 • Moena, Val di Fassa</p>
             <div className="mt-8 pt-8 border-t border-gray-700">
