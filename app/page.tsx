@@ -6,6 +6,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import LiveTracking from "@/components/live-tracking"
 
+export default function Home() {
+  return (
+    <div>
+      <h1 className="text-3xl font-bold text-center mb-6">
+        🏔️ Live Tracking Trentino
+      </h1>
+      <LiveTracking />
+    </div>
+  )
+}
 // Aggiungi questa costante all'inizio del file, subito dopo gli import
 const VERSION = "v2.3.0 - Auto-Sync & QR Code Fisso"
 const LAST_UPDATE = "7 Gennaio 2025, 10:30"
